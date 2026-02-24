@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — Statistiques globales</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Cormorant+Garamond:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0a091a; font-family: 'DM Sans', sans-serif; min-height: 100vh; color: white; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes pulse { 0%,100% { opacity:.6; } 50% { opacity:1; } }
+    @keyframes shimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
+    .fade-in { animation: fadeIn 0.45s ease forwards; }
+    .loading-dot { animation: pulse 1.4s infinite; }
+    .card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 20px;
+      padding: 24px;
+      transition: border-color .2s, background .2s;
+    }
+    .card:hover { background: rgba(255,255,255,0.06); border-color: rgba(124,58,237,0.35); }
+    .stat-value { font-family: 'Cormorant Garamond', serif; font-size: 40px; font-weight: 700; line-height: 1; }
+    .stat-label { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-top: 6px; }
+    .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+    .badge-green { background: rgba(34,197,94,.15); color: #4ade80; border: 1px solid rgba(34,197,94,.25); }
+    .badge-purple { background: rgba(124,58,237,.2); color: #a78bfa; border: 1px solid rgba(124,58,237,.3); }
+    .badge-blue { background: rgba(59,130,246,.15); color: #60a5fa; border: 1px solid rgba(59,130,246,.25); }
+    .badge-orange { background: rgba(251,146,60,.15); color: #fb923c; border: 1px solid rgba(251,146,60,.25); }
+    .nav-link { color: rgba(255,255,255,0.55); text-decoration: none; font-size: 14px; font-weight: 500; padding: 8px 16px; border-radius: 10px; transition: background .2s, color .2s; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif; background: transparent; }
+    .nav-link:hover, .nav-link.active { background: rgba(255,255,255,0.08); color: white; }
+    .th { padding: 12px 14px; text-align: left; color: rgba(255,255,255,0.4); font-weight: 700; letter-spacing: .06em; font-size: 10px; text-transform: uppercase; cursor: pointer; white-space: nowrap; user-select: none; }
+    .th:hover { color: rgba(255,255,255,0.7); }
+    .tr-row { border-bottom: 1px solid rgba(255,255,255,0.05); transition: background .15s; }
+    .tr-row:hover { background: rgba(124,58,237,0.08) !important; }
+    .skeleton { background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%); background-size: 400px 100%; animation: shimmer 1.5s infinite; border-radius: 8px; height: 16px; }
+  </style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+
+<script type="text/babel">
+  const { useState, useEffect, useCallback, useMemo } = React;
+
+  // ── CONFIG ────────────────────────────────────────────────────────
+  const SUPABASE_URL = "https://twgrqkkqehsjuijpnixh.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_42Z5XwQuWPKLsS2iyq3g_w_0LDKabTV";
+  const ADMIN_PASSWORD = "admin1234"; // Changez ce mot de passe !
+
+  const font = "'DM Sans', sans-serif";
+  const serif = "'Cormorant Garamond', serif";
+
+  // ── HELPERS ───────────────────────────────────────────────────────
+  async function sbFetch(table, extra = "") {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?select=*${extra}&order=created_at.desc`, {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  }
+
+  async function sbDelete(table, id) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+      method: "DELETE",
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+    });
+    if (!res.ok) throw new Error(await res.text());
+  }
+
+  function calcAge(d) {
+    if (!d) return null;
+    const parts = String(d).split(/[-\/]/);
+    if (parts.length < 3) return null;
+    const bYear = parseInt(parts[0]), bMonth = parseInt(parts[1]) - 1, bDay = parseInt(parts[2]);
+    if (isNaN(bYear) || isNaN(bMonth) || isNaN(bDay)) return null;
+    const n = new Date();
+    let a = n.getFullYear() - bYear;
+    if (n.getMonth() < bMonth || (n.getMonth() === bMonth && n.getDate() < bDay)) a--;
+    return (a >= 0 && a < 120) ? a : null;
+  }
+
+  function fmtDate(s) {
+    if (!s) return "—";
+    return new Date(s).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
+  }
+
+  function exportCSV(rows, filename = "export") {
+    const headers = ["ID","Date","Nom","Prénom","Naissance","Adresse","CP","Ville","Téléphone","Email","RGPD","Marketing","Don (€)","Réduction (€)","Coût net (€)","IBAN","BIC"];
+    const lines = rows.map(r =>
+      [r.id, fmtDate(r.created_at), r.nom, r.prenom, r.date_naissance, r.adresse, r.code_postal, r.ville, r.telephone, r.email,
+       r.consent_rgpd ? "Oui" : "Non", r.consent_marketing ? "Oui" : "Non",
+       r.montant_don ?? "", r.reduction_fiscale ?? "", r.cout_net ?? "", r.iban, r.bic
+      ].map(v => `"${String(v ?? "").replace(/"/g, '""')}"`).join(",")
+    );
+    const blob = new Blob(["\uFEFF" + [headers.join(","), ...lines].join("\n")], { type: "text/csv;charset=utf-8;" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${filename}_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+  }
+
+  // ── LOGIN ─────────────────────────────────────────────────────────
+  function Login({ onLogin }) {
+    const [pwd, setPwd] = useState("");
+    const [err, setErr] = useState(false);
+    const [shake, setShake] = useState(false);
+
+    function submit() {
+      if (pwd === ADMIN_PASSWORD) { onLogin(); }
+      else { setErr(true); setShake(true); setTimeout(() => setShake(false), 500); }
+    }
+
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "radial-gradient(ellipse at 60% 40%, rgba(76,29,149,.2), transparent 60%), #0a091a", padding: 24 }}>
+        <div className="fade-in" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 28, padding: "52px 44px", maxWidth: 420, width: "100%", textAlign: "center" }}>
+          <div style={{ width: 64, height: 64, borderRadius: 20, background: "linear-gradient(135deg,#4c1d95,#6d28d9)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 28px", fontSize: 28 }}>⚙️</div>
+          <h1 style={{ fontFamily: serif, fontSize: 32, color: "white", marginBottom: 8, fontWeight: 600 }}>Espace Admin</h1>
+          <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, marginBottom: 36 }}>Accès réservé aux administrateurs</p>
+          <div style={{ textAlign: "left", marginBottom: 24 }}>
+            <label style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.4)", display: "block", marginBottom: 8, letterSpacing: ".08em", textTransform: "uppercase" }}>Mot de passe admin</label>
+            <input
+              type="password"
+              value={pwd}
+              onChange={e => { setPwd(e.target.value); setErr(false); }}
+              onKeyDown={e => e.key === "Enter" && submit()}
+              placeholder="••••••••"
+              style={{
+                width: "100%", padding: "14px 18px", borderRadius: 14, fontSize: 16, fontFamily: font,
+                border: `2px solid ${err ? "#f87171" : "rgba(255,255,255,0.1)"}`,
+                background: err ? "rgba(239,68,68,.08)" : "rgba(255,255,255,0.05)",
+                color: "white", outline: "none", transition: "border .2s",
+                animation: shake ? "shake .3s" : "none"
+              }}
+            />
+            {err && <p style={{ color: "#f87171", fontSize: 12, marginTop: 6 }}>Mot de passe incorrect</p>}
+          </div>
+          <button onClick={submit} style={{ width: "100%", padding: 16, borderRadius: 14, border: "none", background: "linear-gradient(135deg,#4c1d95,#6d28d9)", color: "white", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: font, boxShadow: "0 8px 28px rgba(76,29,149,.45)" }}>
+            Accéder au tableau de bord →
+          </button>
+          <p style={{ marginTop: 24, fontSize: 13, color: "rgba(255,255,255,0.3)" }}>
+            <a href="dashboard.html" style={{ color: "#a78bfa", textDecoration: "none" }}>← Retour à l'espace collecteur</a>
+          </p>
+        </div>
+        <style>{`@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }`}</style>
+      </div>
+    );
+  }
+
+  // ── MINI CHART BAR ────────────────────────────────────────────────
+  function MiniBar({ data, color = "#a78bfa", label }) {
+    const max = Math.max(...data.map(d => d.value), 1);
+    return (
+      <div>
+        {label && <p style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.3)", letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 10 }}>{label}</p>}
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 52 }}>
+          {data.map((d, i) => (
+            <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+              <div style={{ width: "100%", background: color, borderRadius: "4px 4px 0 0", height: `${Math.max((d.value / max) * 48, d.value > 0 ? 4 : 0)}px`, opacity: 0.7 + (i / data.length) * 0.3, transition: "height .4s" }} />
+              <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", whiteSpace: "nowrap" }}>{d.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // ── KPI CARD ──────────────────────────────────────────────────────
+  function KpiCard({ icon, label, value, unit = "", color = "#a78bfa", sub }) {
+    return (
+      <div className="card fade-in" style={{ textAlign: "center" }}>
+        <div style={{ fontSize: 26, marginBottom: 10 }}>{icon}</div>
+        <div className="stat-value" style={{ color }}>
+          {value}<span style={{ fontSize: 18, fontWeight: 300, color: "rgba(255,255,255,0.35)", marginLeft: 4 }}>{unit}</span>
+        </div>
+        <div className="stat-label">{label}</div>
+        {sub && <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 6 }}>{sub}</div>}
+      </div>
+    );
+  }
+
+  // ── DETAIL MODAL ──────────────────────────────────────────────────
+  function DetailModal({ row, onClose, onDelete }) {
+    if (!row) return null;
+    return (
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.75)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }} onClick={onClose}>
+        <div onClick={e => e.stopPropagation()} style={{ background: "#1a1730", borderRadius: 24, padding: 36, maxWidth: 680, width: "100%", maxHeight: "90vh", overflowY: "auto", border: "1px solid rgba(255,255,255,0.1)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28 }}>
+            <div>
+              <h2 style={{ fontFamily: serif, fontSize: 28, color: "white", margin: 0 }}>{row.prenom} {row.nom}</h2>
+              <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, marginTop: 4 }}>Enregistré le {fmtDate(row.created_at)}</p>
+            </div>
+            <button onClick={onClose} style={{ background: "rgba(255,255,255,0.08)", border: "none", color: "white", width: 36, height: 36, borderRadius: "50%", cursor: "pointer", fontSize: 18 }}>✕</button>
+          </div>
+          {[
+            { title: "Coordonnées civiles", fields: [["Nom complet", `${row.prenom} ${row.nom}`], ["Date de naissance", row.date_naissance ? fmtDate(row.date_naissance) : "—"], ["Adresse", `${row.adresse ?? "—"}, ${row.code_postal ?? ""} ${row.ville ?? ""}`], ["Téléphone", row.telephone], ["Email", row.email]] },
+            { title: "Don mensuel", fields: [["Montant déclaré", row.montant_don ? `${parseFloat(row.montant_don).toFixed(2)} €` : "Non renseigné"]] },
+            { title: "Coordonnées bancaires", fields: [["IBAN", row.iban || "—"], ["BIC / SWIFT", row.bic || "—"]] },
+          ].map(section => (
+            <div key={section.title} style={{ marginBottom: 14, background: "rgba(255,255,255,0.04)", borderRadius: 14, padding: "16px 20px" }}>
+              <h3 style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.35)", letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 12 }}>{section.title}</h3>
+              {section.fields.map(([lbl, val]) => (
+                <div key={lbl} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                  <span style={{ fontSize: 13, color: "rgba(255,255,255,0.45)" }}>{lbl}</span>
+                  <span style={{ fontSize: 13, color: "white", fontWeight: 500, maxWidth: "65%", textAlign: "right", wordBreak: "break-all" }}>{val || "—"}</span>
+                </div>
+              ))}
+            </div>
+          ))}
+          {row.signature && (
+            <div style={{ marginBottom: 14, background: "rgba(255,255,255,0.04)", borderRadius: 14, padding: "16px 20px" }}>
+              <h3 style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.35)", letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 12 }}>Signature</h3>
+              <img src={row.signature} alt="signature" style={{ width: "100%", borderRadius: 8, background: "white", padding: 4 }} />
+            </div>
+          )}
+          <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
+            <button onClick={onClose} style={{ flex: 1, padding: "12px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.12)", background: "transparent", color: "white", cursor: "pointer", fontFamily: font, fontWeight: 600, fontSize: 14 }}>Fermer</button>
+            <button onClick={() => onDelete(row)} style={{ padding: "12px 24px", borderRadius: 12, border: "none", background: "#7f1d1d", color: "#fca5a5", cursor: "pointer", fontFamily: font, fontWeight: 700, fontSize: 14 }}>Supprimer</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── CONFIRM MODAL ─────────────────────────────────────────────────
+  function ConfirmModal({ row, onConfirm, onCancel }) {
+    if (!row) return null;
+    return (
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.8)", zIndex: 4000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <div className="fade-in" style={{ background: "#1a1730", borderRadius: 20, padding: 36, maxWidth: 400, width: "100%", textAlign: "center", border: "1px solid rgba(239,68,68,.3)" }}>
+          <div style={{ fontSize: 40, marginBottom: 16 }}>⚠️</div>
+          <h3 style={{ fontFamily: serif, fontSize: 24, color: "white", marginBottom: 10 }}>Supprimer cet adhérent ?</h3>
+          <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 14, lineHeight: 1.6, marginBottom: 28 }}>Vous allez supprimer définitivement le dossier de <strong style={{ color: "white" }}>{row.prenom} {row.nom}</strong>. Cette action est irréversible.</p>
+          <div style={{ display: "flex", gap: 12 }}>
+            <button onClick={onCancel} style={{ flex: 1, padding: 14, borderRadius: 12, border: "1px solid rgba(255,255,255,0.12)", background: "transparent", color: "white", cursor: "pointer", fontFamily: font, fontWeight: 600 }}>Annuler</button>
+            <button onClick={() => onConfirm(row.id)} style={{ flex: 1, padding: 14, borderRadius: 12, border: "none", background: "#ef4444", color: "white", cursor: "pointer", fontFamily: font, fontWeight: 700 }}>Supprimer</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── MAIN APP ──────────────────────────────────────────────────────
+  function App() {
+    const [auth, setAuth] = useState(false);
+    const [page, setPage] = useState("overview"); // overview | adherents | collecteurs
+    const [adherents, setAdherents] = useState(null);
+    const [collecteurs, setCollecteurs] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [selected, setSelected] = useState(null);
+    const [delConfirm, setDelConfirm] = useState(null);
+    const [search, setSearch] = useState("");
+    const [sortField, setSortField] = useState("created_at");
+    const [sortDir, setSortDir] = useState("desc");
+    const [filterDon, setFilterDon] = useState("");
+    const [lastRefresh, setLastRefresh] = useState(null);
+
+    const load = useCallback(async () => {
+      setLoading(true); setError(null);
+      try {
+        const [adh, col] = await Promise.all([
+          sbFetch("adherents"),
+          sbFetch("collecteurs").catch(() => []),
+        ]);
+        setAdherents(adh);
+        setCollecteurs(col);
+        setLastRefresh(new Date());
+      } catch (e) { setError(e.message); }
+      setLoading(false);
+    }, []);
+
+    useEffect(() => { if (auth) load(); }, [auth, load]);
+
+    // ── Derived stats ────────────────────────────────────────────
+    const stats = useMemo(() => {
+      if (!adherents) return null;
+      const total = adherents.length;
+      const dons = adherents.map(r => parseFloat(r.montant_don)).filter(d => !isNaN(d) && d > 0);
+      const totalDons = dons.reduce((s, d) => s + d, 0);
+      const avgDon = dons.length > 0 ? totalDons / dons.length : null;
+      const ages = adherents.map(r => calcAge(r.date_naissance)).filter(a => a !== null && a > 0 && a < 120);
+      const avgAge = ages.length > 0 ? ages.reduce((s, a) => s + a, 0) / ages.length : null;
+      const sortedAges = [...ages].sort((a,b) => a-b);
+      const medianAge = sortedAges.length > 0 ? (sortedAges.length % 2 === 0 ? (sortedAges[sortedAges.length/2-1] + sortedAges[sortedAges.length/2]) / 2 : sortedAges[Math.floor(sortedAges.length/2)]) : null;
+      const avecDon = dons.length;
+      const sansDon = total - avecDon;
+      const rgpdOk = adherents.filter(r => r.consent_rgpd).length;
+      const marketOk = adherents.filter(r => r.consent_marketing).length;
+
+      // Don par tranche
+      const tranches = [
+        { label: "0€", value: sansDon },
+        { label: "1-25€", value: adherents.filter(r => r.montant_don > 0 && r.montant_don <= 25).length },
+        { label: "26-100€", value: adherents.filter(r => r.montant_don > 25 && r.montant_don <= 100).length },
+        { label: ">100€", value: adherents.filter(r => r.montant_don > 100).length },
+      ];
+
+      // Inscriptions par jour (7 derniers jours)
+      const now = new Date();
+      const daily = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(now); d.setDate(d.getDate() - (6 - i));
+        const label = d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
+        const value = adherents.filter(r => {
+          const rd = new Date(r.created_at);
+          return rd.toDateString() === d.toDateString();
+        }).length;
+        return { label, value };
+      });
+
+      // Villes top 5
+      const villeCounts = {};
+      adherents.forEach(r => { if (r.ville) villeCounts[r.ville] = (villeCounts[r.ville] || 0) + 1; });
+      const topVilles = Object.entries(villeCounts).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([label, value]) => ({ label, value }));
+
+      // Réduction fiscale totale
+      const totalReduction = adherents.reduce((s, r) => s + (parseFloat(r.reduction_fiscale) || 0), 0);
+      const totalCoutNet = adherents.reduce((s, r) => s + (parseFloat(r.cout_net) || 0), 0);
+
+      return { total, totalDons, avgDon, avgAge, medianAge, avecDon, sansDon, rgpdOk, marketOk, tranches, daily, topVilles, totalReduction, totalCoutNet };
+    }, [adherents]);
+
+    // ── Adherents table ──────────────────────────────────────────
+    const filtered = useMemo(() => {
+      if (!adherents) return [];
+      const q = search.toLowerCase();
+      return adherents.filter(r => {
+        const ms = !q || `${r.nom} ${r.prenom} ${r.email} ${r.ville} ${r.telephone}`.toLowerCase().includes(q);
+        const md = !filterDon || (filterDon === "0" && !r.montant_don) || (filterDon === "1" && r.montant_don > 0 && r.montant_don <= 25) || (filterDon === "2" && r.montant_don > 25 && r.montant_don <= 100) || (filterDon === "3" && r.montant_don > 100);
+        return ms && md;
+      }).sort((a, b) => {
+        const va = a[sortField] ?? "", vb = b[sortField] ?? "";
+        return sortDir === "asc" ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
+      });
+    }, [adherents, search, filterDon, sortField, sortDir]);
+
+    async function handleDelete(id) {
+      try { await sbDelete("adherents", id); setAdherents(r => r.filter(x => x.id !== id)); setDelConfirm(null); setSelected(null); }
+      catch { alert("Erreur lors de la suppression."); }
+    }
+
+    function sortBy(f) {
+      if (sortField === f) setSortDir(d => d === "asc" ? "desc" : "asc");
+      else { setSortField(f); setSortDir("asc"); }
+    }
+
+    const Arrow = ({ f }) => <span style={{ opacity: .5 }}>{sortField === f ? (sortDir === "asc" ? " ↑" : " ↓") : " ↕"}</span>;
+
+    if (!auth) return <Login onLogin={() => setAuth(true)} />;
+
+    const navItems = [
+      { key: "overview", label: "Vue d'ensemble", icon: "📊" },
+      { key: "adherents", label: `Adhérents${adherents ? ` (${adherents.length})` : ""}`, icon: "👥" },
+      { key: "collecteurs", label: `Collecteurs${collecteurs ? ` (${collecteurs.length})` : ""}`, icon: "🚶" },
+    ];
+
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+
+        {/* HEADER */}
+        <header style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.07)", padding: "0 28px", height: 60, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 100, backdropFilter: "blur(12px)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 10, background: "linear-gradient(135deg,#4c1d95,#6d28d9)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⚙️</div>
+              <span style={{ fontFamily: serif, fontSize: 20, color: "white", fontWeight: 600 }}>Admin</span>
+              <span className="badge badge-purple" style={{ marginLeft: 4 }}>Dashboard</span>
+            </div>
+            <nav style={{ display: "flex", gap: 2 }}>
+              {navItems.map(n => (
+                <button key={n.key} onClick={() => setPage(n.key)} className={`nav-link${page === n.key ? " active" : ""}`} style={{ background: page === n.key ? "rgba(124,58,237,.2)" : undefined }}>
+                  {n.icon} {n.label}
+                </button>
+              ))}
+            </nav>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {lastRefresh && <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>Actualisé {lastRefresh.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>}
+            <button onClick={load} disabled={loading} style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.06)", color: "white", cursor: loading ? "not-allowed" : "pointer", fontFamily: font, fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ display: "inline-block", animation: loading ? "spin 1s linear infinite" : "none" }}>🔄</span> Actualiser
+            </button>
+            <a href="dashboard.html" style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "rgba(255,255,255,0.5)", cursor: "pointer", fontFamily: font, fontSize: 13, fontWeight: 600, textDecoration: "none" }}>← Espace collecteur</a>
+          </div>
+        </header>
+
+        {/* MAIN */}
+        <main style={{ flex: 1, maxWidth: 1280, margin: "0 auto", width: "100%", padding: "32px 24px" }}>
+
+          {error && (
+            <div style={{ background: "rgba(239,68,68,.12)", border: "1px solid rgba(239,68,68,.3)", borderRadius: 14, padding: "16px 20px", marginBottom: 24, color: "#f87171", fontSize: 13 }}>
+              ⚠️ Erreur de chargement : {error}
+            </div>
+          )}
+
+          {/* ── OVERVIEW ─────────────────────────────────────────── */}
+          {page === "overview" && (
+            <div className="fade-in">
+              <div style={{ marginBottom: 32 }}>
+                <h1 style={{ fontFamily: serif, fontSize: 38, color: "white", fontWeight: 600, marginBottom: 6 }}>Vue d'ensemble</h1>
+                <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 14 }}>Statistiques globales de la plateforme de collecte</p>
+              </div>
+
+              {!stats ? (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16 }}>
+                  {[1,2,3,4].map(i => <div key={i} className="card" style={{ height: 120 }}><div className="skeleton" style={{ marginBottom: 12 }} /><div className="skeleton" style={{ width: "60%" }} /></div>)}
+                </div>
+              ) : (
+                <>
+                  {/* KPIs row 1 */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 20 }}>
+                    <KpiCard icon="👥" label="Total adhérents" value={stats.total} color="#a78bfa" />
+                    <KpiCard icon="💸" label="Don moyen mensuel" value={stats.avgDon !== null ? stats.avgDon.toFixed(2) : "—"} unit="€" color="#34d399" />
+                    <KpiCard icon="💰" label="Volume mensuel total" value={stats.totalDons.toFixed(0)} unit="€" color="#60a5fa" sub={`Réduction: ${stats.totalReduction.toFixed(0)} €`} />
+                    <KpiCard icon="🎂" label="Âge moyen" value={stats.avgAge !== null ? stats.avgAge.toFixed(1) : "—"} unit="ans" color="#fb923c" sub={`Médiane : ${stats.medianAge !== null ? stats.medianAge.toFixed(0) : "—"} ans`} />
+                  </div>
+
+                  {/* KPIs row 2 */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16, marginBottom: 28 }}>
+                    <KpiCard icon="✅" label="Avec IBAN / prélèvement" value={adherents.filter(r => r.iban).length} color="#4ade80" sub={`${adherents.length > 0 ? (adherents.filter(r => r.iban).length / adherents.length * 100).toFixed(0) : 0}% du total`} />
+                    <KpiCard icon="🚶" label="Collecteurs inscrits" value={collecteurs ? collecteurs.length : "—"} color="#fbbf24" />
+                    <KpiCard icon="📍" label="Villes couvertes" value={stats.topVilles.length > 0 ? Object.keys((() => { const v={}; adherents.forEach(r=>{if(r.ville)v[r.ville]=1;}); return v; })()).length : "—"} color="#f472b6" />
+                  </div>
+
+                  {/* Charts row */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20, marginBottom: 28 }}>
+                    <div className="card">
+                      <p style={{ fontSize: 13, fontWeight: 700, color: "white", marginBottom: 20 }}>Inscriptions — 7 derniers jours</p>
+                      <MiniBar data={stats.daily} color="#a78bfa" />
+                    </div>
+                    <div className="card">
+                      <p style={{ fontSize: 13, fontWeight: 700, color: "white", marginBottom: 20 }}>Répartition des dons</p>
+                      <MiniBar data={stats.tranches} color="#34d399" />
+                    </div>
+                    <div className="card">
+                      <p style={{ fontSize: 13, fontWeight: 700, color: "white", marginBottom: 16 }}>Top 5 villes</p>
+                      {stats.topVilles.length === 0 ? (
+                        <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 13 }}>Aucune donnée</p>
+                      ) : (
+                        stats.topVilles.map((v, i) => (
+                          <div key={v.label} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", width: 16 }}>{i + 1}.</span>
+                            <div style={{ flex: 1, background: "rgba(255,255,255,0.06)", borderRadius: 4, height: 6, overflow: "hidden" }}>
+                              <div style={{ width: `${(v.value / stats.topVilles[0].value) * 100}%`, height: "100%", background: "#60a5fa", borderRadius: 4 }} />
+                            </div>
+                            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", minWidth: 80 }}>{v.label}</span>
+                            <span className="badge badge-blue">{v.value}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Quick actions */}
+                  <div style={{ display: "flex", gap: 12 }}>
+                    <button onClick={() => { setPage("adherents"); }} style={{ padding: "12px 20px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.8)", cursor: "pointer", fontFamily: font, fontSize: 13, fontWeight: 600 }}>
+                      👥 Voir tous les adhérents
+                    </button>
+                    <button onClick={() => exportCSV(adherents, "adherents_global")} style={{ padding: "12px 20px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.8)", cursor: "pointer", fontFamily: font, fontSize: 13, fontWeight: 600 }}>
+                      📥 Exporter tout en CSV
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ── ADHERENTS TABLE ────────────────────────────────────── */}
+          {page === "adherents" && (
+            <div className="fade-in">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24 }}>
+                <div>
+                  <h1 style={{ fontFamily: serif, fontSize: 36, color: "white", fontWeight: 600, marginBottom: 4 }}>Adhérents</h1>
+                  <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 14 }}>{filtered.length} résultat{filtered.length !== 1 ? "s" : ""}{adherents && ` sur ${adherents.length} au total`}</p>
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={() => exportCSV(filtered, "adherents")} style={{ padding: "10px 18px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.06)", color: "white", cursor: "pointer", fontFamily: font, fontSize: 13, fontWeight: 600 }}>📥 Exporter CSV</button>
+                  <button onClick={load} style={{ padding: "10px 18px", borderRadius: 10, border: "none", background: "rgba(255,255,255,0.07)", color: "white", cursor: "pointer", fontFamily: font, fontSize: 13, fontWeight: 600 }}>🔄 Actualiser</button>
+                </div>
+              </div>
+
+              {/* Filters */}
+              <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
+                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍  Rechercher par nom, email, ville…" style={{ flex: "1 1 280px", padding: "11px 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)", color: "white", fontFamily: font, fontSize: 14, outline: "none" }} />
+                <select value={filterDon} onChange={e => setFilterDon(e.target.value)} style={{ padding: "11px 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)", background: "#16142a", color: "white", fontFamily: font, fontSize: 13, cursor: "pointer", outline: "none" }}>
+                  <option value="">Tous les dons</option>
+                  <option value="0">Sans don</option>
+                  <option value="1">1 € – 25 €</option>
+                  <option value="2">26 € – 100 €</option>
+                  <option value="3">+ de 100 €</option>
+                </select>
+              </div>
+
+              {loading ? (
+                <div style={{ textAlign: "center", padding: 60, color: "rgba(255,255,255,0.3)", fontSize: 14 }} className="loading-dot">Chargement…</div>
+              ) : (
+                <div style={{ background: "rgba(255,255,255,0.025)", borderRadius: 16, border: "1px solid rgba(255,255,255,0.07)", overflow: "hidden" }}>
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+                          {[["created_at","Date"],["nom","Nom"],["prenom","Prénom"],["email","Email"],["ville","Ville"],["montant_don","Don"]].map(([f, l]) => (
+                            <th key={f} onClick={() => sortBy(f)} className="th">{l}<Arrow f={f} /></th>
+                          ))}
+                          <th className="th" style={{ cursor: "default" }}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filtered.length === 0 && (
+                          <tr><td colSpan={7} style={{ textAlign: "center", color: "rgba(255,255,255,0.3)", padding: 60, fontSize: 14 }}>Aucun adhérent trouvé</td></tr>
+                        )}
+                        {filtered.map((r, i) => (
+                          <tr key={r.id} className="tr-row" style={{ background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.015)" }}>
+                            <td style={{ padding: "12px 14px", color: "rgba(255,255,255,0.45)", whiteSpace: "nowrap" }}>{fmtDate(r.created_at)}</td>
+                            <td style={{ padding: "12px 14px", color: "white", fontWeight: 600 }}>{r.nom}</td>
+                            <td style={{ padding: "12px 14px", color: "rgba(255,255,255,0.8)" }}>{r.prenom}</td>
+                            <td style={{ padding: "12px 14px", color: "rgba(255,255,255,0.65)", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.email}</td>
+                            <td style={{ padding: "12px 14px", color: "rgba(255,255,255,0.55)" }}>{r.ville}</td>
+                            <td style={{ padding: "12px 14px" }}>
+                              {r.montant_don ? <span className="badge badge-green">{parseFloat(r.montant_don).toFixed(2)} €</span> : <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 12 }}>—</span>}
+                            </td>
+                            <td style={{ padding: "12px 14px", whiteSpace: "nowrap" }}>
+                              <button onClick={() => setSelected(r)} style={{ marginRight: 6, padding: "5px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "transparent", color: "white", cursor: "pointer", fontFamily: font, fontSize: 12 }}>Voir</button>
+                              <button onClick={() => setDelConfirm(r)} style={{ padding: "5px 12px", borderRadius: 8, border: "none", background: "#7f1d1d", color: "#fca5a5", cursor: "pointer", fontFamily: font, fontSize: 12, fontWeight: 600 }}>Suppr.</button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── COLLECTEURS TABLE ──────────────────────────────────── */}
+          {page === "collecteurs" && (
+            <div className="fade-in">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24 }}>
+                <div>
+                  <h1 style={{ fontFamily: serif, fontSize: 36, color: "white", fontWeight: 600, marginBottom: 4 }}>Collecteurs</h1>
+                  <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 14 }}>{collecteurs ? collecteurs.length : "—"} compte{collecteurs && collecteurs.length !== 1 ? "s" : ""} enregistré{collecteurs && collecteurs.length !== 1 ? "s" : ""}</p>
+                </div>
+                {collecteurs && collecteurs.length > 0 && (
+                  <button onClick={() => exportCSV(collecteurs, "collecteurs")} style={{ padding: "10px 18px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.06)", color: "white", cursor: "pointer", fontFamily: font, fontSize: 13, fontWeight: 600 }}>📥 Exporter CSV</button>
+                )}
+              </div>
+
+              {loading ? (
+                <div style={{ textAlign: "center", padding: 60, color: "rgba(255,255,255,0.3)" }} className="loading-dot">Chargement…</div>
+              ) : !collecteurs || collecteurs.length === 0 ? (
+                <div className="card" style={{ textAlign: "center", padding: 60 }}>
+                  <div style={{ fontSize: 40, marginBottom: 16 }}>🚶</div>
+                  <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 15, marginBottom: 8 }}>Aucun collecteur enregistré</p>
+                  <p style={{ color: "rgba(255,255,255,0.25)", fontSize: 13 }}>Les comptes créés via la page d'inscription apparaîtront ici.</p>
+                  <a href="register.html" style={{ display: "inline-block", marginTop: 20, padding: "11px 22px", borderRadius: 10, background: "linear-gradient(135deg,#4c1d95,#6d28d9)", color: "white", textDecoration: "none", fontSize: 13, fontWeight: 700 }}>Créer un compte →</a>
+                </div>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
+                  {collecteurs.map(c => (
+                    <div key={c.id} className="card">
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+                        <div style={{ width: 44, height: 44, borderRadius: 14, background: "linear-gradient(135deg,#4c1d95,#6d28d9)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
+                          {c.role === "admin" ? "⚙️" : c.role === "responsable" ? "👔" : "🚶"}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontWeight: 700, color: "white", fontSize: 15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.prenom} {c.nom}</p>
+                          <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.email}</p>
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        <span className={`badge ${c.role === "admin" ? "badge-purple" : c.role === "responsable" ? "badge-orange" : "badge-blue"}`}>
+                          {c.role === "admin" ? "Administrateur" : c.role === "responsable" ? "Responsable" : "Collecteur"}
+                        </span>
+                        {c.organisation && <span className="badge" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.1)" }}>{c.organisation}</span>}
+                      </div>
+                      {c.telephone && <p style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginTop: 10 }}>📞 {c.telephone}</p>}
+                      <p style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", marginTop: 8 }}>Inscrit le {fmtDate(c.created_at)}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+        </main>
+
+        {/* FOOTER */}
+        <footer style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "14px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.2)" }}>Espace Admin — Tableau de bord global</span>
+          <div style={{ display: "flex", gap: 16 }}>
+            <a href="dashboard.html" style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", textDecoration: "none" }}>Espace collecteur</a>
+            <a href="register.html" style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", textDecoration: "none" }}>Inscription</a>
+            <a href="index.html" style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", textDecoration: "none" }}>Formulaire</a>
+          </div>
+        </footer>
+
+        {/* MODALS */}
+        <DetailModal row={selected} onClose={() => setSelected(null)} onDelete={row => { setSelected(null); setDelConfirm(row); }} />
+        <ConfirmModal row={delConfirm} onConfirm={handleDelete} onCancel={() => setDelConfirm(null)} />
+
+        <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

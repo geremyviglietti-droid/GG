@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Créer un compte — Espace Collecteur</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Cormorant+Garamond:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0f0e1a; font-family: 'DM Sans', sans-serif; min-height: 100vh; color: white; display: flex; flex-direction: column; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes shimmer { 0%,100% { opacity:.4; } 50% { opacity:.8; } }
+    .fade-in { animation: fadeIn 0.5s ease forwards; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+
+<script type="text/babel">
+  const { useState, useEffect } = React;
+
+  const SUPABASE_URL = "https://twgrqkkqehsjuijpnixh.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_42Z5XwQuWPKLsS2iyq3g_w_0LDKabTV";
+
+  const font = "'DM Sans', sans-serif";
+  const serif = "'Cormorant Garamond', serif";
+
+  async function supabaseInsert(table, data) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}`, "Prefer": "return=representation" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  }
+
+  function App() {
+    const [step, setStep] = useState("form"); // form | success
+    const [form, setForm] = useState({ prenom:"", nom:"", email:"", telephone:"", organisation:"", role:"collecteur", password:"", passwordConfirm:"", acceptTerms:false });
+    const [errors, setErrors] = useState({});
+    const [showPwd, setShowPwd] = useState(false);
+    const [showPwd2, setShowPwd2] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState(null);
+
+    const roles = [
+      { value:"collecteur", label:"Collecteur terrain", desc:"Enregistrement de fiches de don en face-à-face", icon:"🚶" },
+      { value:"responsable", label:"Responsable d'équipe", desc:"Supervision d'une équipe de collecteurs", icon:"👔" },
+      { value:"admin", label:"Administrateur", desc:"Gestion complète du CRM et des équipes", icon:"⚙️" },
+    ];
+
+    const update = (k,v) => { setForm(f=>({...f,[k]:v})); setErrors(e=>({...e,[k]:undefined})); };
+
+    const inputS = (err) => ({
+      border: `2px solid ${err ? "#f87171" : "#2d2b4e"}`,
+      borderRadius: 14,
+      padding: "14px 18px",
+      width: "100%",
+      outline: "none",
+      fontSize: 15,
+      fontFamily: font,
+      background: err ? "rgba(239,68,68,.08)" : "rgba(255,255,255,0.05)",
+      color: "white",
+      boxSizing: "border-box",
+      transition: "border .2s",
+    });
+
+    const lbl = { fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.4)", display: "block", marginBottom: 7, letterSpacing: ".08em", textTransform: "uppercase" };
+
+    function validate() {
+      const e = {};
+      if (!form.prenom.trim()) e.prenom = "Requis";
+      if (!form.nom.trim()) e.nom = "Requis";
+      if (!form.email.trim() || !form.email.includes("@")) e.email = "Email invalide";
+      if (!form.organisation.trim()) e.organisation = "Requis";
+      if (form.password.length < 8) e.password = "8 caractères minimum";
+      if (form.password !== form.passwordConfirm) e.passwordConfirm = "Les mots de passe ne correspondent pas";
+      if (!form.acceptTerms) e.acceptTerms = "Vous devez accepter les conditions d'utilisation";
+      setErrors(e);
+      return Object.keys(e).length === 0;
+    }
+
+    async function hashPassword(pwd) {
+      const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pwd));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,"0")).join("");
+    }
+
+    async function handleSubmit() {
+      if (!validate()) return;
+      setSubmitting(true); setSubmitError(null);
+      try {
+        // Vérifier si l'email existe déjà
+        const existing = await fetch(`${SUPABASE_URL}/rest/v1/collecteurs?email=eq.${encodeURIComponent(form.email)}&select=id`, {
+          headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` }
+        }).then(r => r.json()).catch(() => []);
+        if (existing && existing.length > 0) {
+          setSubmitError("Un compte avec cet email existe déjà.");
+          setSubmitting(false); return;
+        }
+        const password_hash = await hashPassword(form.password);
+        await supabaseInsert("collecteurs", {
+          prenom: form.prenom,
+          nom: form.nom,
+          email: form.email,
+          telephone: form.telephone,
+          organisation: form.organisation,
+          role: form.role,
+          password_hash,
+        });
+        setStep("success");
+      } catch(e) {
+        setSubmitError("Erreur lors de la création du compte : " + e.message);
+      }
+      setSubmitting(false);
+    }
+
+    if (step === "success") return (
+      <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:24,background:"linear-gradient(160deg,#0f0e1a,#1e1b4b)"}}>
+        <div className="fade-in" style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:28,padding:"52px 44px",textAlign:"center",maxWidth:480,width:"100%"}}>
+          <div style={{width:72,height:72,borderRadius:"50%",background:"rgba(34,197,94,.15)",border:"2px solid rgba(34,197,94,.4)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 24px",fontSize:32,color:"#4ade80"}}>✓</div>
+          <h2 style={{fontFamily:serif,fontSize:32,color:"white",marginBottom:12,fontWeight:600}}>Compte créé avec succès !</h2>
+          <p style={{color:"rgba(255,255,255,0.5)",fontSize:15,lineHeight:1.7,marginBottom:8}}>Bienvenue, <strong style={{color:"white"}}>{form.prenom} {form.nom}</strong>.</p>
+          <p style={{color:"rgba(255,255,255,0.4)",fontSize:14,lineHeight:1.6,marginBottom:32}}>Un email de confirmation a été envoyé à <strong style={{color:"rgba(255,255,255,0.7)"}}>{form.email}</strong>. Votre compte est en attente de validation par un administrateur.</p>
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <a href="dashboard.html" style={{display:"block",padding:"15px",borderRadius:14,background:"linear-gradient(135deg,#4c1d95,#6d28d9)",color:"white",fontSize:15,fontWeight:700,textDecoration:"none",boxShadow:"0 6px 24px rgba(76,29,149,.4)"}}>
+              Accéder à mon espace →
+            </a>
+            <a href="index.html" style={{display:"block",padding:"13px",borderRadius:14,background:"rgba(255,255,255,0.07)",border:"1px solid rgba(255,255,255,0.1)",color:"rgba(255,255,255,0.7)",fontSize:14,fontWeight:600,textDecoration:"none"}}>
+              Formulaire d'adhésion
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+
+    return (
+      <div style={{minHeight:"100vh",display:"flex",flexDirection:"column"}}>
+        {/* HEADER */}
+        <header style={{borderBottom:"1px solid rgba(255,255,255,0.07)",padding:"0 32px",height:64,display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(255,255,255,0.02)"}}>
+          <span style={{fontFamily:serif,fontSize:20,color:"white",fontWeight:600}}>Espace Collecteur</span>
+          <div style={{display:"flex",gap:12,alignItems:"center"}}>
+            <a href="dashboard.html" style={{color:"rgba(255,255,255,0.5)",textDecoration:"none",fontSize:14,padding:"8px 16px",borderRadius:10,background:"rgba(255,255,255,0.07)"}}>🏠 Tableau de bord</a>
+            <a href="index.html" style={{color:"rgba(255,255,255,0.5)",textDecoration:"none",fontSize:14,padding:"8px 16px",borderRadius:10,background:"rgba(255,255,255,0.07)"}}>📋 Formulaire</a>
+          </div>
+        </header>
+
+        {/* MAIN */}
+        <main style={{flex:1,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"40px 24px",background:"linear-gradient(160deg,#0f0e1a 0%,#1e1b4b 60%,#0f0e1a 100%)"}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 480px",gap:64,maxWidth:1000,width:"100%",alignItems:"start"}}>
+            {/* LEFT — pitch */}
+            <div className="fade-in" style={{paddingTop:8}}>
+              <div style={{display:"inline-flex",alignItems:"center",gap:8,background:"rgba(124,58,237,.15)",border:"1px solid rgba(124,58,237,.3)",borderRadius:20,padding:"6px 14px",marginBottom:24}}>
+                <span style={{fontSize:12,fontWeight:700,color:"#a78bfa",letterSpacing:".08em",textTransform:"uppercase"}}>Accès gratuit</span>
+              </div>
+              <h1 style={{fontFamily:serif,fontSize:52,color:"white",fontWeight:600,lineHeight:1.15,marginBottom:18}}>Rejoignez l'espace collecteur</h1>
+              <p style={{color:"rgba(255,255,255,0.5)",fontSize:16,lineHeight:1.7,marginBottom:40}}>Créez votre compte pour accéder à l'outil de saisie de fiches de don, suivre vos statistiques personnelles et gérer vos adhérents en temps réel.</p>
+
+              <div style={{display:"flex",flexDirection:"column",gap:16}}>
+                {[
+                  { icon:"📋", title:"Fiche de don numérique", desc:"Saisie guidée en 5 étapes avec validation IBAN et signature" },
+                  { icon:"📊", title:"Statistiques en temps réel", desc:"Âge moyen, don moyen et ratio d'adhérents/heure" },
+                  { icon:"🔒", title:"Données sécurisées", desc:"Chiffrement RGPD, conforme PCI-DSS pour les IBAN" },
+                  { icon:"📤", title:"Export CSV", desc:"Exportez vos données pour votre reporting" },
+                ].map(f=>(
+                  <div key={f.title} style={{display:"flex",gap:16,alignItems:"flex-start"}}>
+                    <div style={{width:44,height:44,borderRadius:12,background:"rgba(124,58,237,.15)",border:"1px solid rgba(124,58,237,.25)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>{f.icon}</div>
+                    <div>
+                      <p style={{fontSize:15,fontWeight:600,color:"white",marginBottom:3}}>{f.title}</p>
+                      <p style={{fontSize:13,color:"rgba(255,255,255,0.45)",lineHeight:1.5}}>{f.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* RIGHT — form */}
+            <div className="fade-in" style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.09)",borderRadius:24,padding:"36px 32px",backdropFilter:"blur(12px)"}}>
+              <h2 style={{fontFamily:serif,fontSize:28,color:"white",fontWeight:600,marginBottom:4}}>Créer un compte</h2>
+              <p style={{color:"rgba(255,255,255,0.4)",fontSize:14,marginBottom:28}}>Remplissez le formulaire pour vous inscrire</p>
+
+              {/* Nom / Prénom */}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:16}}>
+                <div>
+                  <label style={lbl}>Prénom</label>
+                  <input style={inputS(!!errors.prenom)} value={form.prenom} onChange={e=>update("prenom",e.target.value)} placeholder="Jean"/>
+                  {errors.prenom&&<p style={{color:"#f87171",fontSize:12,marginTop:4}}>{errors.prenom}</p>}
+                </div>
+                <div>
+                  <label style={lbl}>Nom</label>
+                  <input style={inputS(!!errors.nom)} value={form.nom} onChange={e=>update("nom",e.target.value)} placeholder="MARTIN"/>
+                  {errors.nom&&<p style={{color:"#f87171",fontSize:12,marginTop:4}}>{errors.nom}</p>}
+                </div>
+              </div>
+
+              {/* Email */}
+              <div style={{marginBottom:16}}>
+                <label style={lbl}>Adresse email</label>
+                <input type="email" style={inputS(!!errors.email)} value={form.email} onChange={e=>update("email",e.target.value)} placeholder="jean.martin@email.com"/>
+                {errors.email&&<p style={{color:"#f87171",fontSize:12,marginTop:4}}>{errors.email}</p>}
+              </div>
+
+              {/* Téléphone */}
+              <div style={{marginBottom:16}}>
+                <label style={lbl}>Téléphone <span style={{fontWeight:300,opacity:.5}}>(optionnel)</span></label>
+                <input type="tel" style={inputS(false)} value={form.telephone} onChange={e=>update("telephone",e.target.value)} placeholder="06 12 34 56 78"/>
+              </div>
+
+              {/* Organisation */}
+              <div style={{marginBottom:16}}>
+                <label style={lbl}>Organisation / Association</label>
+                <input style={inputS(!!errors.organisation)} value={form.organisation} onChange={e=>update("organisation",e.target.value)} placeholder="Nom de votre organisation"/>
+                {errors.organisation&&<p style={{color:"#f87171",fontSize:12,marginTop:4}}>{errors.organisation}</p>}
+              </div>
+
+              {/* Rôle */}
+              <div style={{marginBottom:20}}>
+                <label style={lbl}>Votre rôle</label>
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  {roles.map(r=>(
+                    <div key={r.value} onClick={()=>update("role",r.value)} style={{display:"flex",gap:12,alignItems:"center",padding:"12px 14px",borderRadius:12,border:`2px solid ${form.role===r.value?"#6d28d9":"rgba(255,255,255,0.08)"}`,background:form.role===r.value?"rgba(124,58,237,.15)":"rgba(255,255,255,0.03)",cursor:"pointer",transition:"all .2s"}}>
+                      <div style={{width:36,height:36,borderRadius:10,background:"rgba(255,255,255,0.07)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>{r.icon}</div>
+                      <div style={{flex:1}}>
+                        <p style={{fontSize:14,fontWeight:600,color:"white",marginBottom:2}}>{r.label}</p>
+                        <p style={{fontSize:12,color:"rgba(255,255,255,0.4)"}}>{r.desc}</p>
+                      </div>
+                      <div style={{width:20,height:20,borderRadius:"50%",border:`2px solid ${form.role===r.value?"#6d28d9":"rgba(255,255,255,0.2)"}`,background:form.role===r.value?"#6d28d9":"transparent",display:"flex",alignItems:"center",justifyContent:"center"}}>{form.role===r.value&&<span style={{fontSize:10,color:"white",fontWeight:700}}>✓</span>}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Mot de passe */}
+              <div style={{marginBottom:16}}>
+                <label style={lbl}>Mot de passe</label>
+                <div style={{position:"relative"}}>
+                  <input type={showPwd?"text":"password"} style={{...inputS(!!errors.password),paddingRight:48}} value={form.password} onChange={e=>update("password",e.target.value)} placeholder="8 caractères minimum"/>
+                  <button onClick={()=>setShowPwd(v=>!v)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.4)",fontSize:16}}>{showPwd?"🙈":"👁"}</button>
+                </div>
+                {form.password.length>0&&(
+                  <p style={{fontSize:12,marginTop:6,color:form.password.length>=12?"#4ade80":form.password.length>=8?"#facc15":"#f87171",fontWeight:600}}>
+                    {form.password.length>=12?"Mot de passe fort":form.password.length>=8?"Mot de passe acceptable":"Trop court — 8 caractères minimum"}
+                  </p>
+                )}
+                {errors.password&&<p style={{color:"#f87171",fontSize:12,marginTop:4}}>{errors.password}</p>}
+              </div>
+
+              <div style={{marginBottom:20}}>
+                <label style={lbl}>Confirmer le mot de passe</label>
+                <div style={{position:"relative"}}>
+                  <input type={showPwd2?"text":"password"} style={{...inputS(!!errors.passwordConfirm),paddingRight:48}} value={form.passwordConfirm} onChange={e=>update("passwordConfirm",e.target.value)} placeholder="Retapez votre mot de passe"/>
+                  <button onClick={()=>setShowPwd2(v=>!v)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.4)",fontSize:16}}>{showPwd2?"🙈":"👁"}</button>
+                </div>
+                {form.passwordConfirm.length>0&&form.password===form.passwordConfirm&&<p style={{color:"#4ade80",fontSize:12,marginTop:4,fontWeight:600}}>✓ Les mots de passe correspondent</p>}
+                {errors.passwordConfirm&&<p style={{color:"#f87171",fontSize:12,marginTop:4}}>{errors.passwordConfirm}</p>}
+              </div>
+
+              {/* CGU */}
+              <div onClick={()=>update("acceptTerms",!form.acceptTerms)} style={{display:"flex",gap:12,alignItems:"flex-start",padding:"14px 16px",borderRadius:12,border:`2px solid ${errors.acceptTerms?"#f87171":form.acceptTerms?"#6d28d9":"rgba(255,255,255,0.08)"}`,background:form.acceptTerms?"rgba(124,58,237,.1)":"transparent",cursor:"pointer",marginBottom:20,transition:"all .2s"}}>
+                <div style={{width:22,height:22,borderRadius:6,border:`2px solid ${form.acceptTerms?"#6d28d9":"rgba(255,255,255,0.3)"}`,background:form.acceptTerms?"#6d28d9":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:1}}>{form.acceptTerms&&<span style={{color:"white",fontSize:11,fontWeight:700}}>✓</span>}</div>
+                <p style={{fontSize:13,color:"rgba(255,255,255,0.6)",lineHeight:1.6,margin:0}}>J'accepte les <span style={{color:"#a78bfa",textDecoration:"underline"}}>conditions d'utilisation</span> et la <span style={{color:"#a78bfa",textDecoration:"underline"}}>politique de confidentialité</span> conformément au RGPD.</p>
+              </div>
+              {errors.acceptTerms&&<p style={{color:"#f87171",fontSize:12,marginBottom:16,marginTop:-14}}>{errors.acceptTerms}</p>}
+
+              {submitError&&<div style={{background:"rgba(239,68,68,.12)",border:"1px solid rgba(239,68,68,.3)",borderRadius:10,padding:"12px 16px",marginBottom:16,color:"#f87171",fontSize:13}}>{submitError}</div>}
+
+              <button onClick={handleSubmit} disabled={submitting} style={{width:"100%",padding:"16px",borderRadius:14,border:"none",background:submitting?"rgba(255,255,255,0.1)":"linear-gradient(135deg,#4c1d95,#6d28d9)",color:submitting?"rgba(255,255,255,0.4)":"white",fontSize:15,fontWeight:700,cursor:submitting?"not-allowed":"pointer",fontFamily:font,boxShadow:submitting?"none":"0 8px 28px rgba(76,29,149,.45)",transition:"all .2s"}}>
+                {submitting?"Création du compte…":"Créer mon compte →"}
+              </button>
+
+              <p style={{textAlign:"center",fontSize:13,color:"rgba(255,255,255,0.35)",marginTop:20}}>Déjà un compte ? <a href="dashboard.html" style={{color:"#a78bfa",textDecoration:"none",fontWeight:600}}>Se connecter</a></p>
+            </div>
+          </div>
+        </main>
+
+        {/* FOOTER */}
+        <footer style={{borderTop:"1px solid rgba(255,255,255,0.06)",padding:"16px 32px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span style={{fontSize:12,color:"rgba(255,255,255,0.25)"}}>Espace Collecteur — Inscription</span>
+          <div style={{display:"flex",gap:16}}>
+            <a href="index.html" style={{fontSize:12,color:"rgba(255,255,255,0.35)",textDecoration:"none"}}>Formulaire d'adhésion</a>
+            <a href="dashboard.html" style={{fontSize:12,color:"rgba(255,255,255,0.35)",textDecoration:"none"}}>Tableau de bord</a>
+          </div>
+        </footer>
+      </div>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>

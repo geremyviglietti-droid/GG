@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Formulaire d'adhésion</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Cormorant+Garamond:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #1e1b4b; font-family: 'DM Sans', sans-serif; }
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type=number] { -moz-appearance: textfield; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+
+  <script type="text/babel">
+    const { useState, useRef, useEffect } = React;
+
+    // ============================================================
+    //  CONFIGURATION SUPABASE — MODIFIEZ CES 2 LIGNES
+    //  Dashboard Supabase → Settings → API
+    // ============================================================
+    const SUPABASE_URL = "https://twgrqkkqehsjuijpnixh.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_42Z5XwQuWPKLsS2iyq3g_w_0LDKabTV";
+
+    // Mot de passe CRM — changez-le !
+    const CRM_PASSWORD = "admin1234";
+
+    // ============================================================
+    //  HELPERS SUPABASE
+    // ============================================================
+    async function supabaseInsert(table, data) {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}`, "Prefer": "return=representation" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    }
+
+    async function supabaseFetch(table) {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?select=*&order=created_at.desc`, {
+        headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` },
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    }
+
+    async function supabaseDelete(table, id) {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+        method: "DELETE",
+        headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` },
+      });
+      if (!res.ok) throw new Error(await res.text());
+    }
+
+    // ============================================================
+    //  VALIDATION IBAN
+    // ============================================================
+    const IBAN_LENGTHS = { FR: 27, DE: 22, BE: 16, ES: 24, IT: 27, CH: 21, GB: 22, NL: 18, PT: 25, LU: 20, AT: 20, SE: 24 };
+
+    function validateIBAN(iban) {
+      const c = iban.replace(/\s/g, "").toUpperCase();
+      if (c.length < 15 || c.length > 34) return false;
+      if (IBAN_LENGTHS[c.slice(0, 2)] && c.length !== IBAN_LENGTHS[c.slice(0, 2)]) return false;
+      const r = (c.slice(4) + c.slice(0, 4)).split("").map(x => isNaN(x) ? (x.charCodeAt(0) - 55).toString() : x).join("");
+      let rem = 0;
+      for (let i = 0; i < r.length; i++) rem = (rem * 10 + parseInt(r[i])) % 97;
+      return rem === 1;
+    }
+
+    function isIBANComplete(iban) {
+      const c = iban.replace(/\s/g, "").toUpperCase();
+      return IBAN_LENGTHS[c.slice(0, 2)] ? c.length === IBAN_LENGTHS[c.slice(0, 2)] : c.length >= 15;
+    }
+
+    // ============================================================
+    //  STYLES
+    // ============================================================
+    const font = "'DM Sans', sans-serif";
+    const serif = "'Cormorant Garamond', serif";
+
+    const inputStyle = (err, ok) => ({
+      border: `2px solid ${err ? "#f87171" : ok ? "#22c55e" : "#e2e8f0"}`,
+      borderRadius: 14, padding: "15px 18px", width: "100%", outline: "none",
+      fontSize: 15, fontFamily: font, background: err ? "#fff5f5" : ok ? "#f0fdf4" : "white",
+      color: "#1a1a2e", boxSizing: "border-box", transition: "border 0.2s",
+    });
+
+    const lbl = {
+      fontSize: 11, fontWeight: 700, color: "#6b7280", display: "block",
+      marginBottom: 7, letterSpacing: "0.08em", textTransform: "uppercase",
+    };
+
+    const steps = ["Coordonnées", "RGPD", "Simulateur de don", "IBAN / BIC", "Récapitulatif"];
+
+    // ============================================================
+    //  EXPORT CSV
+    // ============================================================
+    function exportCSV(rows) {
+      const headers = ["ID","Date","Nom","Prénom","Naissance","Adresse","CP","Ville","Téléphone","Email","RGPD","Marketing","Don (€)","Réduction (€)","Coût net (€)","IBAN","BIC"];
+      const lines = rows.map(r => [r.id, new Date(r.created_at).toLocaleDateString("fr-FR"), r.nom, r.prenom, r.date_naissance, r.adresse, r.code_postal, r.ville, r.telephone, r.email, r.consent_rgpd ? "Oui" : "Non", r.consent_marketing ? "Oui" : "Non", r.montant_don ?? "", r.reduction_fiscale ?? "", r.cout_net ?? "", r.iban, r.bic].map(v => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","));
+      const blob = new Blob(["\uFEFF" + [headers.join(","), ...lines].join("\n")], { type: "text/csv;charset=utf-8;" });
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `adherents_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+    }
+
+    // ============================================================
+    //  CRM
+    // ============================================================
+    function CRM({ onClose }) {
+      const [rows, setRows] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [error, setError] = useState(null);
+      const [search, setSearch] = useState("");
+      const [sortField, setSortField] = useState("created_at");
+      const [sortDir, setSortDir] = useState("desc");
+      const [selected, setSelected] = useState(null);
+      const [delConfirm, setDelConfirm] = useState(null);
+      const [filterDon, setFilterDon] = useState("");
+
+      useEffect(() => { load(); }, []);
+
+      async function load() {
+        setLoading(true); setError(null);
+        try { setRows(await supabaseFetch("adherents")); }
+        catch (e) { setError("Impossible de charger les données. Vérifiez la configuration Supabase. " + e.message); }
+        setLoading(false);
+      }
+
+      async function handleDelete(id) {
+        try { await supabaseDelete("adherents", id); setRows(r => r.filter(x => x.id !== id)); setDelConfirm(null); setSelected(null); }
+        catch { alert("Erreur lors de la suppression."); }
+      }
+
+      function sort(field) {
+        if (sortField === field) setSortDir(d => d === "asc" ? "desc" : "asc");
+        else { setSortField(field); setSortDir("asc"); }
+      }
+
+      const filtered = rows.filter(r => {
+        const q = search.toLowerCase();
+        const ms = !q || `${r.nom} ${r.prenom} ${r.email} ${r.ville} ${r.telephone}`.toLowerCase().includes(q);
+        const md = !filterDon || (filterDon === "0" && !r.montant_don) || (filterDon === "1" && r.montant_don > 0 && r.montant_don <= 25) || (filterDon === "2" && r.montant_don > 25 && r.montant_don <= 100) || (filterDon === "3" && r.montant_don > 100);
+        return ms && md;
+      }).sort((a, b) => {
+        const va = a[sortField] ?? ""; const vb = b[sortField] ?? "";
+        return sortDir === "asc" ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
+      });
+
+      const totalDons = filtered.reduce((s, r) => s + (parseFloat(r.montant_don) || 0), 0);
+      const Arrow = ({ f }) => <span style={{ opacity: 0.5 }}>{sortField === f ? (sortDir === "asc" ? " ↑" : " ↓") : " ↕"}</span>;
+      const thStyle = { padding: "14px 12px", textAlign: "left", color: "rgba(255,255,255,0.4)", fontWeight: 600, letterSpacing: "0.06em", fontSize: 11, textTransform: "uppercase", cursor: "pointer", whiteSpace: "nowrap", userSelect: "none" };
+
+      return (
+        <div style={{ position: "fixed", inset: 0, background: "#0f0e1a", zIndex: 1000, fontFamily: font, display: "flex", flexDirection: "column" }}>
+          <div style={{ background: "linear-gradient(90deg,#1e1b4b,#4c1d95)", padding: "18px 32px", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
+            <div>
+              <h1 style={{ fontFamily: serif, fontSize: 26, color: "white", fontWeight: 600, margin: 0 }}>CRM Adhérents</h1>
+              <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, margin: "4px 0 0" }}>{filtered.length} adhérent{filtered.length > 1 ? "s" : ""} · Total dons : {totalDons.toFixed(2)} €/mois</p>
+            </div>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button onClick={() => exportCSV(filtered)} style={{ padding: "10px 20px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.08)", color: "white", cursor: "pointer", fontFamily: font, fontSize: 13, fontWeight: 600 }}>Exporter CSV</button>
+              <button onClick={load} style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: "rgba(255,255,255,0.12)", color: "white", cursor: "pointer", fontFamily: font, fontSize: 13, fontWeight: 600 }}>Actualiser</button>
+              <button onClick={onClose} style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: "#ef4444", color: "white", cursor: "pointer", fontFamily: font, fontSize: 13, fontWeight: 700 }}>Fermer</button>
+            </div>
+          </div>
+
+          <div style={{ background: "#16142a", padding: "14px 32px", display: "flex", gap: 16, alignItems: "center", flexShrink: 0, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher par nom, email, ville, téléphone..." style={{ flex: 1, padding: "10px 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)", color: "white", fontFamily: font, fontSize: 14, outline: "none" }} />
+            <select value={filterDon} onChange={e => setFilterDon(e.target.value)} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)", background: "#1e1b4b", color: "white", fontFamily: font, fontSize: 13, cursor: "pointer", outline: "none" }}>
+              <option value="">Tous les dons</option>
+              <option value="0">Sans don</option>
+              <option value="1">1 € – 25 €</option>
+              <option value="2">26 € – 100 €</option>
+              <option value="3">+ de 100 €</option>
+            </select>
+          </div>
+
+          <div style={{ flex: 1, overflow: "auto", padding: "0 32px 32px" }}>
+            {loading && <div style={{ textAlign: "center", color: "rgba(255,255,255,0.4)", paddingTop: 80, fontSize: 15 }}>Chargement...</div>}
+            {error && <div style={{ background: "#7f1d1d", color: "#fca5a5", padding: 20, borderRadius: 12, margin: "24px 0", fontSize: 13, lineHeight: 1.6 }}>{error}</div>}
+            {!loading && !error && (
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+                    {[["created_at","Date"],["nom","Nom"],["prenom","Prénom"],["email","Email"],["ville","Ville"],["telephone","Téléphone"],["montant_don","Don (€)"],["consent_rgpd","RGPD"]].map(([f,label]) => (
+                      <th key={f} onClick={() => sort(f)} style={thStyle}>{label}<Arrow f={f} /></th>
+                    ))}
+                    <th style={{ ...thStyle, cursor: "default" }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.length === 0 && <tr><td colSpan={9} style={{ textAlign: "center", color: "rgba(255,255,255,0.3)", padding: 60, fontSize: 14 }}>Aucun adhérent trouvé</td></tr>}
+                  {filtered.map((r, i) => (
+                    <tr key={r.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)", background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.02)" }}
+                      onMouseEnter={e => e.currentTarget.style.background = "rgba(124,58,237,0.08)"}
+                      onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.02)"}>
+                      <td style={{ padding: "12px", color: "rgba(255,255,255,0.5)", whiteSpace: "nowrap" }}>{new Date(r.created_at).toLocaleDateString("fr-FR")}</td>
+                      <td style={{ padding: "12px", color: "white", fontWeight: 600 }}>{r.nom}</td>
+                      <td style={{ padding: "12px", color: "rgba(255,255,255,0.8)" }}>{r.prenom}</td>
+                      <td style={{ padding: "12px", color: "rgba(255,255,255,0.7)" }}>{r.email}</td>
+                      <td style={{ padding: "12px", color: "rgba(255,255,255,0.6)" }}>{r.ville}</td>
+                      <td style={{ padding: "12px", color: "rgba(255,255,255,0.6)" }}>{r.telephone}</td>
+                      <td style={{ padding: "12px" }}>{r.montant_don ? <span style={{ background: "#14532d", color: "#86efac", padding: "3px 10px", borderRadius: 20, fontWeight: 700, fontSize: 12 }}>{parseFloat(r.montant_don).toFixed(2)} €</span> : <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 12 }}>—</span>}</td>
+                      <td style={{ padding: "12px" }}><span style={{ fontSize: 12, fontWeight: 700, color: r.consent_rgpd ? "#86efac" : "#f87171" }}>{r.consent_rgpd ? "Accepté" : "Refusé"}</span></td>
+                      <td style={{ padding: "12px", whiteSpace: "nowrap" }}>
+                        <button onClick={() => setSelected(r)} style={{ marginRight: 8, padding: "5px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.15)", background: "transparent", color: "white", cursor: "pointer", fontFamily: font, fontSize: 12 }}>Voir</button>
+                        <button onClick={() => setDelConfirm(r)} style={{ padding: "5px 12px", borderRadius: 8, border: "none", background: "#7f1d1d", color: "#fca5a5", cursor: "pointer", fontFamily: font, fontSize: 12, fontWeight: 600 }}>Suppr.</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {selected && (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }} onClick={() => setSelected(null)}>
+              <div onClick={e => e.stopPropagation()} style={{ background: "#1a1730", borderRadius: 20, padding: 36, maxWidth: 680, width: "100%", maxHeight: "90vh", overflowY: "auto", border: "1px solid rgba(255,255,255,0.1)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28 }}>
+                  <div>
+                    <h2 style={{ fontFamily: serif, fontSize: 26, color: "white", margin: 0 }}>{selected.prenom} {selected.nom}</h2>
+                    <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, marginTop: 4 }}>Adhérent depuis le {new Date(selected.created_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}</p>
+                  </div>
+                  <button onClick={() => setSelected(null)} style={{ background: "rgba(255,255,255,0.08)", border: "none", color: "white", width: 36, height: 36, borderRadius: "50%", cursor: "pointer", fontSize: 18 }}>✕</button>
+                </div>
+                {[
+                  { title: "Coordonnées civiles", fields: [["Nom complet", `${selected.prenom} ${selected.nom}`], ["Date de naissance", selected.date_naissance ? new Date(selected.date_naissance).toLocaleDateString("fr-FR") : "—"], ["Adresse", `${selected.adresse}, ${selected.code_postal} ${selected.ville}`], ["Téléphone", selected.telephone], ["Email", selected.email]] },
+                  { title: "Consentements RGPD", fields: [["Politique de confidentialité", selected.consent_rgpd ? "Accepté" : "Refusé"], ["Communications marketing", selected.consent_marketing ? "Accepté" : "Non"]] },
+                  { title: "Don mensuel", fields: [["Montant déclaré", selected.montant_don ? `${parseFloat(selected.montant_don).toFixed(2)} €` : "Non renseigné"], ["Réduction fiscale (66%)", selected.reduction_fiscale ? `${parseFloat(selected.reduction_fiscale).toFixed(2)} €` : "—"], ["Coût réel net", selected.cout_net ? `${parseFloat(selected.cout_net).toFixed(2)} €` : "—"]] },
+                  { title: "Coordonnées bancaires", fields: [["IBAN", selected.iban || "—"], ["BIC / SWIFT", selected.bic || "—"]] },
+                ].map(section => (
+                  <div key={section.title} style={{ marginBottom: 16, background: "rgba(255,255,255,0.04)", borderRadius: 14, padding: "16px 20px" }}>
+                    <h3 style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.35)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 12 }}>{section.title}</h3>
+                    {section.fields.map(([label, value]) => (
+                      <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                        <span style={{ fontSize: 13, color: "rgba(255,255,255,0.45)" }}>{label}</span>
+                        <span style={{ fontSize: 13, color: "white", fontWeight: 500, maxWidth: "60%", textAlign: "right", wordBreak: "break-all" }}>{value || "—"}</span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+                {selected.signature && (
+                  <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 14, padding: "16px 20px" }}>
+                    <h3 style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.35)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 12 }}>Signature</h3>
+                    <img src={selected.signature} alt="Signature" style={{ width: "100%", borderRadius: 10, background: "white", padding: 8 }} />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {delConfirm && (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ background: "#1a1730", borderRadius: 18, padding: 36, maxWidth: 400, width: "90%", textAlign: "center", border: "1px solid #7f1d1d" }}>
+                <h3 style={{ color: "white", fontFamily: serif, fontSize: 22, marginBottom: 12 }}>Supprimer ce dossier ?</h3>
+                <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 14, marginBottom: 28 }}>Le dossier de <strong style={{ color: "white" }}>{delConfirm.prenom} {delConfirm.nom}</strong> sera définitivement supprimé.</p>
+                <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+                  <button onClick={() => setDelConfirm(null)} style={{ padding: "11px 24px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.2)", background: "transparent", color: "white", cursor: "pointer", fontFamily: font, fontWeight: 600 }}>Annuler</button>
+                  <button onClick={() => handleDelete(delConfirm.id)} style={{ padding: "11px 24px", borderRadius: 10, border: "none", background: "#ef4444", color: "white", cursor: "pointer", fontFamily: font, fontWeight: 700 }}>Supprimer définitivement</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ============================================================
+    //  LOGIN CRM
+    // ============================================================
+    function CRMLogin({ onSuccess, onCancel }) {
+      const [pwd, setPwd] = useState("");
+      const [err, setErr] = useState(false);
+      function submit() {
+        if (pwd === CRM_PASSWORD) onSuccess();
+        else { setErr(true); setTimeout(() => setErr(false), 2000); }
+      }
+      return (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: font }}>
+          <div style={{ background: "#1a1730", borderRadius: 20, padding: 48, maxWidth: 380, width: "90%", textAlign: "center", border: "1px solid rgba(255,255,255,0.1)" }}>
+            <h2 style={{ fontFamily: serif, fontSize: 26, color: "white", marginBottom: 6 }}>Accès CRM</h2>
+            <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, marginBottom: 28 }}>Entrez le mot de passe administrateur</p>
+            <input type="password" value={pwd} onChange={e => setPwd(e.target.value)} onKeyDown={e => e.key === "Enter" && submit()} placeholder="Mot de passe" style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `2px solid ${err ? "#ef4444" : "rgba(255,255,255,0.1)"}`, background: "rgba(255,255,255,0.06)", color: "white", fontFamily: font, fontSize: 15, outline: "none", marginBottom: 16 }} />
+            {err && <p style={{ color: "#f87171", fontSize: 13, marginBottom: 12 }}>Mot de passe incorrect</p>}
+            <button onClick={submit} style={{ width: "100%", padding: "14px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#4c1d95,#6d28d9)", color: "white", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: font, marginBottom: 12 }}>Accéder au CRM</button>
+            <button onClick={onCancel} style={{ width: "100%", padding: "10px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "rgba(255,255,255,0.5)", fontSize: 13, cursor: "pointer", fontFamily: font }}>Annuler</button>
+          </div>
+        </div>
+      );
+    }
+
+    // ============================================================
+    //  APP PRINCIPALE
+    // ============================================================
+    function App() {
+      const [view, setView] = useState("form");
+      const [step, setStep] = useState(0);
+      const [submitting, setSubmitting] = useState(false);
+      const [submitSuccess, setSubmitSuccess] = useState(false);
+      const [submitError, setSubmitError] = useState(null);
+      const [form, setForm] = useState({ nom: "", prenom: "", dateNaissance: "", adresse: "", codePostal: "", ville: "", telephone: "", email: "", consentRgpd: false, consentMarketing: false, montantDon: "", iban: "", bic: "", ibanValid: null });
+      const [signature, setSignature] = useState(null);
+      const canvasRef = useRef(null);
+      const [drawing, setDrawing] = useState(false);
+      const [errors, setErrors] = useState({});
+
+      const montant = parseFloat(form.montantDon) || 0;
+      const defiscalisation = (montant * 0.66).toFixed(2);
+      const netDon = (montant * 0.34).toFixed(2);
+
+      function update(field, value) {
+        if (field === "iban") {
+          const c = value.replace(/\s/g, "").toUpperCase();
+          const complete = isIBANComplete(value);
+          setForm(f => ({ ...f, iban: value, ibanValid: complete ? validateIBAN(c) : null }));
+        } else {
+          setForm(f => ({ ...f, [field]: value }));
+        }
+        setErrors(e => ({ ...e, [field]: undefined }));
+      }
+
+      useEffect(() => {
+        if (step === 4 && canvasRef.current) {
+          const ctx = canvasRef.current.getContext("2d");
+          ctx.strokeStyle = "#1a1a2e"; ctx.lineWidth = 2.5; ctx.lineCap = "round"; ctx.lineJoin = "round";
+        }
+      }, [step]);
+
+      function getPos(e, canvas) {
+        const rect = canvas.getBoundingClientRect();
+        const sx = canvas.width / rect.width; const sy = canvas.height / rect.height;
+        const cx = e.touches ? e.touches[0].clientX : e.clientX;
+        const cy = e.touches ? e.touches[0].clientY : e.clientY;
+        return { x: (cx - rect.left) * sx, y: (cy - rect.top) * sy };
+      }
+
+      function startDraw(e) { e.preventDefault(); const cv = canvasRef.current; const ctx = cv.getContext("2d"); const p = getPos(e, cv); ctx.beginPath(); ctx.moveTo(p.x, p.y); setDrawing(true); }
+      function draw(e) { e.preventDefault(); if (!drawing) return; const cv = canvasRef.current; const ctx = cv.getContext("2d"); const p = getPos(e, cv); ctx.lineTo(p.x, p.y); ctx.stroke(); }
+      function endDraw(e) { e.preventDefault(); setDrawing(false); setSignature(canvasRef.current.toDataURL()); }
+      function clearSignature() { canvasRef.current.getContext("2d").clearRect(0, 0, 700, 200); setSignature(null); }
+
+      function validateStep() {
+        const errs = {};
+        if (step === 0) {
+          if (!form.nom.trim()) errs.nom = "Ce champ est requis";
+          if (!form.prenom.trim()) errs.prenom = "Ce champ est requis";
+          if (!form.dateNaissance) errs.dateNaissance = "Ce champ est requis";
+          if (!form.adresse.trim()) errs.adresse = "Ce champ est requis";
+          if (!form.codePostal.trim()) errs.codePostal = "Ce champ est requis";
+          if (!form.ville.trim()) errs.ville = "Ce champ est requis";
+          if (!form.telephone.trim()) errs.telephone = "Ce champ est requis";
+          if (!form.email.trim() || !form.email.includes("@")) errs.email = "Adresse email invalide";
+        }
+        if (step === 1 && !form.consentRgpd) errs.consentRgpd = "Vous devez accepter la politique de confidentialité pour continuer";
+        if (step === 3) {
+          if (!form.iban.trim()) errs.iban = "Ce champ est requis";
+          else if (form.ibanValid === false) errs.iban = "L'IBAN saisi est invalide";
+          else if (form.ibanValid === null) errs.iban = "Veuillez saisir l'IBAN complet";
+        }
+        setErrors(errs);
+        return Object.keys(errs).length === 0;
+      }
+
+      function next() { if (validateStep()) setStep(s => s + 1); }
+      function prev() { setStep(s => s - 1); }
+
+      async function handleSubmit() {
+        if (!signature) { alert("Veuillez apposer votre signature avant de valider."); return; }
+        setSubmitting(true); setSubmitError(null);
+        try {
+          await supabaseInsert("adherents", {
+            nom: form.nom, prenom: form.prenom, date_naissance: form.dateNaissance,
+            adresse: form.adresse, code_postal: form.codePostal, ville: form.ville,
+            telephone: form.telephone, email: form.email,
+            consent_rgpd: form.consentRgpd, consent_marketing: form.consentMarketing,
+            montant_don: form.montantDon ? parseFloat(form.montantDon) : null,
+            reduction_fiscale: form.montantDon ? parseFloat(defiscalisation) : null,
+            cout_net: form.montantDon ? parseFloat(netDon) : null,
+            iban: form.iban, bic: form.bic, signature,
+          });
+          setSubmitSuccess(true);
+        } catch (e) {
+          setSubmitError("Erreur lors de l'envoi : " + e.message);
+        }
+        setSubmitting(false);
+      }
+
+      function resetForm() {
+        setSubmitSuccess(false); setStep(0);
+        setForm({ nom: "", prenom: "", dateNaissance: "", adresse: "", codePostal: "", ville: "", telephone: "", email: "", consentRgpd: false, consentMarketing: false, montantDon: "", iban: "", bic: "", ibanValid: null });
+        setSignature(null); setErrors({});
+      }
+
+      if (submitSuccess) return (
+        <div style={{ fontFamily: font, minHeight: "100vh", background: "linear-gradient(160deg,#1e1b4b,#4c1d95,#6d28d9)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: "#fafaf9", borderRadius: 28, padding: "56px 48px", textAlign: "center", maxWidth: 480, width: "90%" }}>
+            <div style={{ width: 72, height: 72, borderRadius: "50%", background: "#dcfce7", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px", fontSize: 32, color: "#16a34a", fontWeight: 700 }}>✓</div>
+            <h2 style={{ fontFamily: serif, fontSize: 30, color: "#1a1a2e", marginBottom: 12 }}>Dossier soumis avec succès</h2>
+            <p style={{ color: "#6b7280", fontSize: 15, lineHeight: 1.6, marginBottom: 32 }}>Votre adhésion a bien été enregistrée. Vous recevrez une confirmation à l'adresse <strong>{form.email}</strong>.</p>
+            <button onClick={resetForm} style={{ padding: "14px 32px", borderRadius: 14, border: "none", background: "linear-gradient(135deg,#4c1d95,#6d28d9)", color: "white", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: font }}>Nouveau dossier</button>
+          </div>
+        </div>
+      );
+
+      return (
+        <div style={{ fontFamily: font, minHeight: "100vh", background: "linear-gradient(160deg,#1e1b4b 0%,#4c1d95 50%,#6d28d9 100%)" }}>
+          {view === "crm-login" && <CRMLogin onSuccess={() => setView("crm")} onCancel={() => setView("form")} />}
+          {view === "crm" && <CRM onClose={() => setView("form")} />}
+
+          <div style={{ maxWidth: 820, margin: "0 auto", padding: "36px 20px 60px" }}>
+            <div style={{ textAlign: "center", marginBottom: 40, position: "relative" }}>
+              <h1 style={{ fontFamily: serif, fontSize: 42, color: "white", marginBottom: 8, fontWeight: 600 }}>Formulaire d'adhésion</h1>
+              <p style={{ color: "rgba(255,255,255,0.6)", fontSize: 15, fontWeight: 300 }}>Remplissez chaque étape pour finaliser votre dossier d'adhésion</p>
+              <div style={{ position: "absolute", right: 0, top: 4, display: "flex", gap: 8 }}>
+                <a href="dashboard.html" style={{ padding: "8px 16px", borderRadius: 20, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.7)", cursor: "pointer", fontFamily: font, fontSize: 12, fontWeight: 600, textDecoration: "none" }}>🏠 Tableau de bord</a>
+                <a href="register.html" style={{ padding: "8px 16px", borderRadius: 20, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.7)", cursor: "pointer", fontFamily: font, fontSize: 12, fontWeight: 600, textDecoration: "none" }}>Créer un compte</a>
+                <button onClick={() => setView("crm-login")} style={{ padding: "8px 18px", borderRadius: 20, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.7)", cursor: "pointer", fontFamily: font, fontSize: 12, fontWeight: 600 }}>Accès CRM</button>
+                <a href="admin.html" style={{ padding: "8px 16px", borderRadius: 20, border: "1px solid rgba(124,58,237,.5)", background: "rgba(124,58,237,.2)", color: "#c4b5fd", cursor: "pointer", fontFamily: font, fontSize: 12, fontWeight: 700, textDecoration: "none" }}>⚙️ Admin</a>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 6, marginBottom: 32 }}>
+              {steps.map((s, i) => (
+                <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, transition: "all 0.3s", background: i < step ? "#22c55e" : i === step ? "white" : "rgba(255,255,255,0.12)", color: i < step ? "white" : i === step ? "#4c1d95" : "rgba(255,255,255,0.45)", boxShadow: i === step ? "0 0 0 4px rgba(255,255,255,0.2)" : "none" }}>{i < step ? "✓" : i + 1}</div>
+                  <span style={{ fontSize: 10, color: i === step ? "white" : "rgba(255,255,255,0.4)", fontWeight: i === step ? 600 : 400, textAlign: "center", lineHeight: 1.3, letterSpacing: "0.04em", textTransform: "uppercase" }}>{s}</span>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ height: 4, background: "rgba(255,255,255,0.1)", borderRadius: 4, marginBottom: 32, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${(step / (steps.length - 1)) * 100}%`, background: "linear-gradient(90deg,#22c55e,#86efac)", borderRadius: 4, transition: "width 0.4s ease" }} />
+            </div>
+
+            <div style={{ background: "#fafaf9", borderRadius: 28, padding: "44px 48px", boxShadow: "0 32px 80px rgba(0,0,0,0.35)", minHeight: 560 }}>
+
+              {step === 0 && (
+                <div>
+                  <div style={{ marginBottom: 36 }}><h2 style={{ fontFamily: serif, fontSize: 32, color: "#1a1a2e", marginBottom: 6, fontWeight: 600 }}>Coordonnées civiles</h2><p style={{ color: "#9ca3af", fontSize: 14 }}>Informations personnelles de l'adhérent</p></div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
+                    <div><label style={lbl}>Nom</label><input style={inputStyle(!!errors.nom)} value={form.nom} onChange={e => update("nom", e.target.value)} placeholder="MARTIN" />{errors.nom && <p style={{ color: "#ef4444", fontSize: 12, marginTop: 5 }}>{errors.nom}</p>}</div>
+                    <div><label style={lbl}>Prénom</label><input style={inputStyle(!!errors.prenom)} value={form.prenom} onChange={e => update("prenom", e.target.value)} placeholder="Jean" />{errors.prenom && <p style={{ color: "#ef4444", fontSize: 12, marginTop: 5 }}>{errors.prenom}</p>}</div>
+                  </div>
+                  <div style={{ marginBottom: 20 }}><label style={lbl}>Date de naissance</label><input type="date" style={inputStyle(!!errors.dateNaissance)} value={form.dateNaissance} onChange={e => update("dateNaissance", e.target.value)} />{errors.dateNaissance && <p style={{ color: "#ef4444", fontSize: 12, marginTop: 5 }}>{errors.dateNaissance}</p>}</div>
+                  <div style={{ marginBottom: 20 }}><label style={lbl}>Adresse postale</label><input style={inputStyle(!!errors.adresse)} value={form.adresse} onChange={e => update("adresse", e.target.value)} placeholder="12 rue de la Paix" />{errors.adresse && <p style={{ color: "#ef4444", fontSize: 12, marginTop: 5 }}>{errors.adresse}</p>}</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: 20, marginBottom: 20 }}>
+                    <div><label style={lbl}>Code postal</label><input style={inputStyle(!!errors.codePostal)} value={form.codePostal} onChange={e => update("codePostal", e.target.value)} placeholder="75001" maxLength={10} />{errors.codePostal && <p style={{ color: "#ef4444", fontSize: 12, marginTop: 5 }}>{errors.codePostal}</p>}</div>
+                    <div><label style={lbl}>Ville</label><input style={inputStyle(!!errors.ville)} value={form.ville} onChange={e => update("ville", e.target.value)} placeholder="Paris" />{errors.ville && <p style={{ color: "#ef4444", fontSize: 12, marginTop: 5 }}>{errors.ville}</p>}</div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+                    <div><label style={lbl}>Numéro de téléphone</label><input type="tel" style={inputStyle(!!errors.telephone)} value={form.telephone} onChange={e => update("telephone", e.target.value)} placeholder="06 12 34 56 78" />{errors.telephone && <p style={{ color: "#ef4444", fontSize: 12, marginTop: 5 }}>{errors.telephone}</p>}</div>
+                    <div><label style={lbl}>Adresse email</label><input type="email" style={inputStyle(!!errors.email)} value={form.email} onChange={e => update("email", e.target.value)} placeholder="jean.martin@email.com" />{errors.email && <p style={{ color: "#ef4444", fontSize: 12, marginTop: 5 }}>{errors.email}</p>}</div>
+                  </div>
+                </div>
+              )}
+
+              {step === 1 && (
+                <div>
+                  <div style={{ marginBottom: 36 }}><h2 style={{ fontFamily: serif, fontSize: 32, color: "#1a1a2e", marginBottom: 6, fontWeight: 600 }}>Protection des données personnelles</h2><p style={{ color: "#9ca3af", fontSize: 14 }}>Conformément au RGPD — UE 2016/679</p></div>
+                  <div style={{ background: "white", borderRadius: 18, padding: 28, marginBottom: 28, border: "1px solid #e5e7eb", maxHeight: 280, overflowY: "auto", lineHeight: 1.8 }}>
+                    <h3 style={{ fontSize: 15, fontWeight: 700, color: "#1a1a2e", marginBottom: 14 }}>Politique de confidentialité</h3>
+                    <p style={{ fontSize: 13, color: "#4b5563", marginBottom: 14 }}>Dans le cadre de votre adhésion, nous collectons et traitons vos données personnelles (nom, prénom, date de naissance, adresse postale, numéro de téléphone, adresse email, coordonnées bancaires) pour les finalités suivantes : gestion de votre adhésion, exécution du contrat, traitement des prélèvements et communication relative à nos services.</p>
+                    <p style={{ fontSize: 13, color: "#4b5563", marginBottom: 14 }}><strong>Base légale :</strong> Le traitement est fondé sur l'exécution du contrat d'adhésion (Art. 6.1.b RGPD) pour les données nécessaires à la gestion de votre compte, et sur votre consentement explicite (Art. 6.1.a RGPD) pour les communications optionnelles.</p>
+                    <p style={{ fontSize: 13, color: "#4b5563", marginBottom: 14 }}><strong>Destinataires :</strong> Vos données sont traitées par notre organisation et ses prestataires techniques, soumis à des obligations contractuelles strictes de confidentialité. Elles ne sont jamais vendues à des tiers.</p>
+                    <p style={{ fontSize: 13, color: "#4b5563", marginBottom: 14 }}><strong>Durée de conservation :</strong> Vos données sont conservées pendant toute la durée de votre adhésion, puis à compter de la fin du contrat conformément aux obligations légales en vigueur.</p>
+                    <p style={{ fontSize: 13, color: "#4b5563", marginBottom: 14 }}><strong>Vos droits :</strong> Conformément au RGPD, vous disposez d'un droit d'accès, de rectification, d'effacement, de limitation, de portabilité et d'opposition. Écrivez à dpo@organisation.fr ou introduisez une réclamation auprès de la CNIL (www.cnil.fr).</p>
+                    <p style={{ fontSize: 13, color: "#4b5563" }}><strong>Sécurité :</strong> Nous mettons en oeuvre des mesures techniques appropriées pour garantir la confidentialité de vos données, notamment le chiffrement des données bancaires conformément aux normes PCI-DSS.</p>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    {[{ key: "consentRgpd", required: true, label: "J'ai lu et j'accepte la politique de confidentialité. J'accepte que mes données personnelles soient traitées dans le cadre de la gestion de mon adhésion." }, { key: "consentMarketing", required: false, label: "J'accepte de recevoir des communications par email et SMS concernant les actualités et services de l'organisation. (optionnel)" }].map(({ key, required, label }) => (
+                      <div key={key} onClick={() => { setForm(f => ({ ...f, [key]: !f[key] })); setErrors(e => ({ ...e, [key]: undefined })); }} style={{ display: "flex", gap: 16, alignItems: "flex-start", padding: "18px 20px", borderRadius: 14, border: `2px solid ${errors[key] ? "#f87171" : form[key] ? "#6d28d9" : "#e5e7eb"}`, background: form[key] ? "#f5f3ff" : "white", cursor: "pointer", transition: "all 0.2s" }}>
+                        <div style={{ width: 24, height: 24, borderRadius: 7, border: `2px solid ${form[key] ? "#6d28d9" : "#d1d5db"}`, background: form[key] ? "#6d28d9" : "white", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>{form[key] && <span style={{ color: "white", fontSize: 14, fontWeight: 700, lineHeight: 1 }}>✓</span>}</div>
+                        <p style={{ fontSize: 13, color: "#374151", lineHeight: 1.6, margin: 0 }}>{required && <span style={{ fontWeight: 700, color: "#6d28d9" }}>Obligatoire — </span>}{label}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {errors.consentRgpd && <p style={{ color: "#ef4444", fontSize: 13, marginTop: 10, fontWeight: 500 }}>{errors.consentRgpd}</p>}
+                </div>
+              )}
+
+              {step === 2 && (
+                <div>
+                  <div style={{ marginBottom: 36 }}><h2 style={{ fontFamily: serif, fontSize: 32, color: "#1a1a2e", marginBottom: 6, fontWeight: 600 }}>Simulateur de don</h2><p style={{ color: "#9ca3af", fontSize: 14 }}>Calculez votre avantage fiscal avec la défiscalisation à 66%</p></div>
+                  <div style={{ background: "linear-gradient(135deg,#1e1b4b,#4c1d95)", borderRadius: 22, padding: "36px 40px", marginBottom: 32, position: "relative", overflow: "hidden" }}>
+                    <div style={{ position: "absolute", top: -40, right: -40, width: 200, height: 200, borderRadius: "50%", background: "rgba(255,255,255,0.04)" }} />
+                    <label style={{ ...lbl, color: "rgba(255,255,255,0.5)", marginBottom: 12 }}>Montant de votre don mensuel</label>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+                      <input type="number" min="0" step="0.01" value={form.montantDon} onChange={e => update("montantDon", e.target.value)} placeholder="0" style={{ fontSize: 56, fontWeight: 700, background: "transparent", border: "none", outline: "none", color: "white", fontFamily: font, width: "calc(100% - 50px)", caretColor: "#a78bfa" }} />
+                      <span style={{ fontSize: 36, fontWeight: 300, color: "rgba(255,255,255,0.5)" }}>€</span>
+                    </div>
+                    <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: 16 }}>Les décimales sont acceptées (ex : 15.50)</p>
+                  </div>
+                  {montant > 0 ? (
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 28 }}>
+                      <div style={{ background: "white", borderRadius: 18, padding: "24px 20px", textAlign: "center", border: "2px solid #e5e7eb" }}><p style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 10 }}>Don déclaré</p><p style={{ fontSize: 30, fontWeight: 700, color: "#1a1a2e" }}>{parseFloat(form.montantDon).toFixed(2)} €</p><p style={{ fontSize: 12, color: "#9ca3af", marginTop: 6 }}>montant brut</p></div>
+                      <div style={{ background: "#fff7ed", borderRadius: 18, padding: "24px 20px", textAlign: "center", border: "2px solid #fed7aa" }}><p style={{ fontSize: 11, fontWeight: 700, color: "#92400e", letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 10 }}>Réduction d'impôt</p><p style={{ fontSize: 30, fontWeight: 700, color: "#ea580c" }}>{defiscalisation} €</p><p style={{ fontSize: 12, color: "#9a3412", marginTop: 6 }}>66% déduits</p></div>
+                      <div style={{ background: "#f0fdf4", borderRadius: 18, padding: "24px 20px", textAlign: "center", border: "2px solid #bbf7d0" }}><p style={{ fontSize: 11, fontWeight: 700, color: "#14532d", letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 10 }}>Coût réel</p><p style={{ fontSize: 30, fontWeight: 700, color: "#16a34a" }}>{netDon} €</p><p style={{ fontSize: 12, color: "#15803d", marginTop: 6 }}>après déduction</p></div>
+                    </div>
+                  ) : (
+                    <div style={{ background: "white", borderRadius: 18, padding: 32, textAlign: "center", border: "1px solid #e5e7eb", marginBottom: 28 }}><p style={{ color: "#d1d5db", fontSize: 15, fontWeight: 300 }}>Saisissez un montant ci-dessus pour simuler votre défiscalisation</p></div>
+                  )}
+                  <div style={{ background: "#f8f7ff", borderRadius: 16, padding: "18px 22px", border: "1px solid #ddd6fe" }}><p style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.7, margin: 0 }}><strong style={{ color: "#4c1d95" }}>Base légale :</strong> La réduction d'impôt de 66% s'applique conformément à l'article 200 du Code Général des Impôts, dans la limite de 20% du revenu imposable. Au-delà de ce plafond, l'excédent est reportable sur les années suivantes. Ce simulateur est fourni à titre indicatif.</p></div>
+                </div>
+              )}
+
+              {step === 3 && (
+                <div>
+                  <div style={{ marginBottom: 36 }}><h2 style={{ fontFamily: serif, fontSize: 32, color: "#1a1a2e", marginBottom: 6, fontWeight: 600 }}>Coordonnées bancaires</h2><p style={{ color: "#9ca3af", fontSize: 14 }}>Saisissez votre IBAN — il sera vérifié automatiquement — puis renseignez votre BIC</p></div>
+                  <div style={{ marginBottom: 28 }}>
+                    <label style={lbl}>IBAN (International Bank Account Number)</label>
+                    <div style={{ position: "relative" }}>
+                      <input value={form.iban} onChange={e => update("iban", e.target.value)} placeholder="FR76 3000 6000 0112 3456 7890 189" style={{ ...inputStyle(!!errors.iban, form.ibanValid === true), fontFamily: "monospace", letterSpacing: "0.08em", fontSize: 16, paddingRight: 52 }} />
+                      {form.ibanValid !== null && <div style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: form.ibanValid ? "#dcfce7" : "#fee2e2", fontSize: 14, fontWeight: 700, color: form.ibanValid ? "#16a34a" : "#ef4444" }}>{form.ibanValid ? "✓" : "✗"}</div>}
+                    </div>
+                    {form.ibanValid === true && <p style={{ color: "#16a34a", fontSize: 13, marginTop: 8, fontWeight: 600 }}>IBAN valide</p>}
+                    {form.ibanValid === false && <p style={{ color: "#ef4444", fontSize: 13, marginTop: 8 }}>IBAN invalide — vérifiez les chiffres saisis</p>}
+                    {errors.iban && <p style={{ color: "#ef4444", fontSize: 13, marginTop: 8 }}>{errors.iban}</p>}
+                  </div>
+                  <div style={{ marginBottom: 28 }}>
+                    <label style={lbl}>BIC / SWIFT</label>
+                    <input value={form.bic} onChange={e => update("bic", e.target.value)} placeholder="Ex : BNPAFRPP" style={{ ...inputStyle(false, false), fontFamily: "monospace", letterSpacing: "0.08em", fontSize: 16 }} />
+                  </div>
+                  <div style={{ background: "#fefce8", borderRadius: 16, padding: "18px 22px", border: "1px solid #fde68a" }}><p style={{ fontSize: 12, color: "#78350f", lineHeight: 1.7, margin: 0 }}><strong>Sécurité :</strong> Vos coordonnées bancaires sont chiffrées conformément aux normes PCI-DSS et utilisées exclusivement pour le prélèvement SEPA de votre adhésion.</p></div>
+                </div>
+              )}
+
+              {step === 4 && (
+                <div>
+                  <div style={{ marginBottom: 36 }}><h2 style={{ fontFamily: serif, fontSize: 32, color: "#1a1a2e", marginBottom: 6, fontWeight: 600 }}>Récapitulatif & Signature</h2><p style={{ color: "#9ca3af", fontSize: 14 }}>Vérifiez vos informations puis signez pour valider votre adhésion</p></div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
+                    <div style={{ background: "white", borderRadius: 18, padding: 24, border: "1px solid #e5e7eb", gridColumn: "1 / -1" }}>
+                      <h3 style={{ fontSize: 13, fontWeight: 700, color: "#6b7280", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 16 }}>Coordonnées civiles</h3>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 32px" }}>
+                        {[["Nom complet", `${form.prenom} ${form.nom}`], ["Date de naissance", form.dateNaissance ? new Date(form.dateNaissance).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" }) : "—"], ["Adresse", form.adresse], ["Code postal / Ville", `${form.codePostal} ${form.ville}`], ["Téléphone", form.telephone], ["Email", form.email]].map(([l, v]) => (
+                          <div key={l} style={{ padding: "10px 0", borderBottom: "1px solid #f3f4f6" }}><p style={{ fontSize: 11, color: "#9ca3af", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 3 }}>{l}</p><p style={{ fontSize: 14, color: "#1a1a2e", fontWeight: 500 }}>{v || "—"}</p></div>
+                        ))}
+                      </div>
+                    </div>
+                    <div style={{ background: "white", borderRadius: 18, padding: 24, border: "1px solid #e5e7eb" }}>
+                      <h3 style={{ fontSize: 13, fontWeight: 700, color: "#6b7280", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 16 }}>Consentements RGPD</h3>
+                      {[["Politique de confidentialité", form.consentRgpd], ["Communications marketing", form.consentMarketing]].map(([l, v]) => (
+                        <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #f3f4f6" }}><span style={{ fontSize: 13, color: "#374151" }}>{l}</span><span style={{ fontSize: 12, fontWeight: 700, color: v ? "#16a34a" : "#9ca3af" }}>{v ? "Accepté" : "Refusé"}</span></div>
+                      ))}
+                    </div>
+                    <div style={{ background: "white", borderRadius: 18, padding: 24, border: "1px solid #e5e7eb" }}>
+                      <h3 style={{ fontSize: 13, fontWeight: 700, color: "#6b7280", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 16 }}>Don mensuel</h3>
+                      {[["Montant déclaré", form.montantDon ? `${parseFloat(form.montantDon).toFixed(2)} €` : "Non renseigné"], ["Réduction d'impôt (66%)", form.montantDon ? `${defiscalisation} €` : "—"], ["Coût réel net", form.montantDon ? `${netDon} €` : "—"]].map(([l, v]) => (
+                        <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #f3f4f6" }}><span style={{ fontSize: 13, color: "#374151" }}>{l}</span><span style={{ fontSize: 13, fontWeight: 700, color: "#1a1a2e" }}>{v}</span></div>
+                      ))}
+                    </div>
+                    <div style={{ background: "white", borderRadius: 18, padding: 24, border: "1px solid #e5e7eb", gridColumn: "1 / -1" }}>
+                      <h3 style={{ fontSize: 13, fontWeight: 700, color: "#6b7280", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 16 }}>Coordonnées bancaires</h3>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 32px" }}>
+                        {[["IBAN", form.iban], ["BIC / SWIFT", form.bic]].map(([l, v]) => (
+                          <div key={l} style={{ padding: "10px 0", borderBottom: "1px solid #f3f4f6" }}><p style={{ fontSize: 11, color: "#9ca3af", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 3 }}>{l}</p><p style={{ fontSize: 14, color: "#1a1a2e", fontWeight: 500, fontFamily: "monospace", letterSpacing: "0.05em" }}>{v || "—"}</p></div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ background: "white", borderRadius: 18, padding: 28, border: "2px dashed #c4b5fd", marginBottom: 24 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                      <div><h3 style={{ fontSize: 15, fontWeight: 700, color: "#1a1a2e", marginBottom: 2 }}>Signature de l'adhérent</h3><p style={{ fontSize: 12, color: "#9ca3af" }}>Signez avec votre doigt ou un stylet sur tablette tactile</p></div>
+                      <button onClick={clearSignature} style={{ fontSize: 12, color: "#6d28d9", background: "#f5f3ff", border: "1px solid #ddd6fe", padding: "7px 16px", borderRadius: 20, cursor: "pointer", fontFamily: font, fontWeight: 600 }}>Effacer</button>
+                    </div>
+                    <div style={{ background: "#fafaf9", borderRadius: 14, overflow: "hidden", border: "1px solid #e5e7eb", touchAction: "none", position: "relative" }}>
+                      {!signature && <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", color: "#d1d5db", fontSize: 14, pointerEvents: "none", fontStyle: "italic" }}>Zone de signature</div>}
+                      <canvas ref={canvasRef} width={700} height={200} style={{ width: "100%", height: 200, display: "block", cursor: "crosshair" }} onMouseDown={startDraw} onMouseMove={draw} onMouseUp={endDraw} onMouseLeave={endDraw} onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={endDraw} />
+                    </div>
+                  </div>
+                  {submitError && <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 12, padding: "14px 18px", marginBottom: 16, color: "#991b1b", fontSize: 13 }}>{submitError}</div>}
+                  <button onClick={handleSubmit} disabled={submitting} style={{ width: "100%", padding: "18px", borderRadius: 16, border: "none", background: submitting ? "#9ca3af" : "linear-gradient(135deg,#1e1b4b,#4c1d95,#6d28d9)", color: "white", fontSize: 17, fontWeight: 700, cursor: submitting ? "not-allowed" : "pointer", fontFamily: font, boxShadow: "0 8px 28px rgba(76,29,149,0.45)" }}>
+                    {submitting ? "Enregistrement en cours..." : "Valider et soumettre le dossier d'adhésion"}
+                  </button>
+                </div>
+              )}
+
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 40, paddingTop: 28, borderTop: "1px solid #e5e7eb" }}>
+                <button onClick={prev} disabled={step === 0} style={{ padding: "13px 28px", borderRadius: 12, border: "2px solid #e5e7eb", background: step === 0 ? "#f9fafb" : "white", color: step === 0 ? "#d1d5db" : "#374151", fontSize: 14, fontWeight: 600, cursor: step === 0 ? "not-allowed" : "pointer", fontFamily: font }}>Précédent</button>
+                <span style={{ fontSize: 12, color: "#9ca3af", fontWeight: 500 }}>Étape {step + 1} sur {steps.length}</span>
+                {step < steps.length - 1 && <button onClick={next} style={{ padding: "13px 36px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#4c1d95,#6d28d9)", color: "white", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: font, boxShadow: "0 4px 16px rgba(76,29,149,0.35)" }}>Suivant</button>}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>

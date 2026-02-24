@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tableau de bord — Espace Collecteur</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Cormorant+Garamond:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0f0e1a; font-family: 'DM Sans', sans-serif; min-height: 100vh; color: white; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes pulse { 0%,100% { opacity:.6; } 50% { opacity:1; } }
+    .fade-in { animation: fadeIn 0.5s ease forwards; }
+    .card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 28px; transition: border-color .2s, background .2s; }
+    .card:hover { background: rgba(255,255,255,0.06); border-color: rgba(124,58,237,0.4); }
+    .stat-value { font-family: 'Cormorant Garamond', serif; font-size: 36px; font-weight: 700; line-height: 1; }
+    .stat-label { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-top: 8px; }
+    .btn-ghost { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.8); border: 1px solid rgba(255,255,255,0.12); padding: 9px 18px; border-radius: 10px; font-family: 'DM Sans',sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: background .2s; text-decoration: none; display: inline-block; }
+    .btn-ghost:hover { background: rgba(255,255,255,0.12); }
+    .nav-link { color: rgba(255,255,255,0.55); text-decoration: none; font-size: 14px; font-weight: 500; padding: 8px 16px; border-radius: 10px; transition: background .2s, color .2s; border: none; cursor: pointer; font-family: 'DM Sans',sans-serif; background: transparent; }
+    .nav-link:hover, .nav-link.active { background: rgba(255,255,255,0.08); color: white; }
+    .loading-dot { animation: pulse 1.4s infinite; }
+    .badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+    .badge-purple { background: rgba(124,58,237,.2); color: #a78bfa; border: 1px solid rgba(124,58,237,.3); }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+
+<script type="text/babel">
+  const { useState, useEffect, useRef } = React;
+
+  const SUPABASE_URL  = "https://twgrqkkqehsjuijpnixh.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_42Z5XwQuWPKLsS2iyq3g_w_0LDKabTV";
+  const serif = "'Cormorant Garamond', serif";
+  const font  = "'DM Sans', sans-serif";
+
+  // ── HELPERS ───────────────────────────────────────────────────────
+  async function supabaseFetch(table, filter = "") {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?select=*${filter}&order=created_at.desc`, {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  }
+
+  async function supabaseInsert(table, data) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, Prefer: "return=representation" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  }
+
+  function calcAge(dateStr) {
+    if (!dateStr) return null;
+    const parts = String(dateStr).split(/[-\/]/);
+    if (parts.length < 3) return null;
+    const bYear = parseInt(parts[0]), bMonth = parseInt(parts[1]) - 1, bDay = parseInt(parts[2]);
+    if (isNaN(bYear) || isNaN(bMonth) || isNaN(bDay)) return null;
+    const n = new Date();
+    let age = n.getFullYear() - bYear;
+    if (n.getMonth() < bMonth || (n.getMonth() === bMonth && n.getDate() < bDay)) age--;
+    return (age >= 0 && age < 120) ? age : null;
+  }
+
+  async function hashPassword(pwd) {
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pwd));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+  }
+
+  // ── IBAN ──────────────────────────────────────────────────────────
+  const IBAN_LENGTHS = { FR:27,DE:22,BE:16,ES:24,IT:27,CH:21,GB:22,NL:18,PT:25,LU:20,AT:20,SE:24 };
+  function validateIBAN(iban) {
+    const c = iban.replace(/\s/g,"").toUpperCase();
+    if (c.length < 15 || c.length > 34) return false;
+    if (IBAN_LENGTHS[c.slice(0,2)] && c.length !== IBAN_LENGTHS[c.slice(0,2)]) return false;
+    const r = (c.slice(4)+c.slice(0,4)).split("").map(x=>isNaN(x)?(x.charCodeAt(0)-55).toString():x).join("");
+    let rem = 0; for (let i=0;i<r.length;i++) rem=(rem*10+parseInt(r[i]))%97;
+    return rem===1;
+  }
+  function isIBANComplete(iban) {
+    const c = iban.replace(/\s/g,"").toUpperCase();
+    return IBAN_LENGTHS[c.slice(0,2)] ? c.length===IBAN_LENGTHS[c.slice(0,2)] : c.length>=15;
+  }
+
+  // ── LOGIN SCREEN ──────────────────────────────────────────────────
+  function LoginScreen({ onLogin }) {
+    const [email, setEmail]       = useState("");
+    const [password, setPassword] = useState("");
+    const [showPwd, setShowPwd]   = useState(false);
+    const [loading, setLoading]   = useState(false);
+    const [error, setError]       = useState(null);
+
+    async function handleLogin() {
+      if (!email.trim() || !password) { setError("Veuillez remplir tous les champs."); return; }
+      setLoading(true); setError(null);
+      try {
+        const hash = await hashPassword(password);
+        const res = await fetch(
+          `${SUPABASE_URL}/rest/v1/collecteurs?email=eq.${encodeURIComponent(email.trim())}&password_hash=eq.${hash}&select=*`,
+          { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
+        );
+        const rows = await res.json();
+        if (!rows || rows.length === 0) {
+          setError("Email ou mot de passe incorrect.");
+        } else {
+          const user = rows[0];
+          sessionStorage.setItem("collecteur", JSON.stringify(user));
+          onLogin(user);
+        }
+      } catch(e) { setError("Erreur de connexion : " + e.message); }
+      setLoading(false);
+    }
+
+    const inp = (err) => ({
+      border: `2px solid ${err ? "#f87171" : "rgba(255,255,255,0.1)"}`,
+      borderRadius: 14, padding: "14px 18px", width: "100%", outline: "none",
+      fontSize: 15, fontFamily: font, background: "rgba(255,255,255,0.05)",
+      color: "white", boxSizing: "border-box", transition: "border .2s",
+    });
+    const lbl = { fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.4)", display:"block", marginBottom:7, letterSpacing:".08em", textTransform:"uppercase" };
+
+    return (
+      <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"radial-gradient(ellipse at 60% 30%, rgba(76,29,149,.25), transparent 60%), #0f0e1a",padding:24}}>
+        <div className="fade-in" style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:28,padding:"52px 44px",maxWidth:420,width:"100%"}}>
+          <div style={{textAlign:"center",marginBottom:36}}>
+            <div style={{width:60,height:60,borderRadius:18,background:"linear-gradient(135deg,#4c1d95,#6d28d9)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 20px",fontSize:26}}>🎯</div>
+            <h1 style={{fontFamily:serif,fontSize:32,color:"white",fontWeight:600,marginBottom:6}}>Espace Collecteur</h1>
+            <p style={{color:"rgba(255,255,255,0.4)",fontSize:14}}>Connectez-vous pour accéder à votre tableau de bord</p>
+          </div>
+          <div style={{marginBottom:16}}>
+            <label style={lbl}>Adresse email</label>
+            <input type="email" value={email} onChange={e=>{setEmail(e.target.value);setError(null);}} onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder="jean.martin@email.com" style={inp(!!error)} />
+          </div>
+          <div style={{marginBottom:24}}>
+            <label style={lbl}>Mot de passe</label>
+            <div style={{position:"relative"}}>
+              <input type={showPwd?"text":"password"} value={password} onChange={e=>{setPassword(e.target.value);setError(null);}} onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder="••••••••" style={{...inp(!!error),paddingRight:48}} />
+              <button onClick={()=>setShowPwd(v=>!v)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.4)",fontSize:16}}>{showPwd?"🙈":"👁"}</button>
+            </div>
+          </div>
+          {error && <div style={{background:"rgba(239,68,68,.12)",border:"1px solid rgba(239,68,68,.3)",borderRadius:10,padding:"12px 16px",marginBottom:16,color:"#f87171",fontSize:13,textAlign:"center"}}>{error}</div>}
+          <button onClick={handleLogin} disabled={loading} style={{width:"100%",padding:"15px",borderRadius:14,border:"none",background:loading?"rgba(255,255,255,0.1)":"linear-gradient(135deg,#4c1d95,#6d28d9)",color:loading?"rgba(255,255,255,0.4)":"white",fontSize:15,fontWeight:700,cursor:loading?"not-allowed":"pointer",fontFamily:font,boxShadow:loading?"none":"0 8px 28px rgba(76,29,149,.45)",transition:"all .2s"}}>
+            {loading ? "Connexion en cours…" : "Se connecter →"}
+          </button>
+          <p style={{textAlign:"center",fontSize:13,color:"rgba(255,255,255,0.35)",marginTop:20}}>
+            Pas encore de compte ? <a href="register.html" style={{color:"#a78bfa",textDecoration:"none",fontWeight:600}}>S'inscrire</a>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── DONATION PANEL ────────────────────────────────────────────────
+  function DonationPanel({ currentUser, onSuccess }) {
+    const [step, setStep]             = useState(0);
+    const [form, setForm]             = useState({ nom:"", prenom:"", dateNaissance:"", adresse:"", codePostal:"", ville:"", telephone:"", email: currentUser?.email||"", consentRgpd:false, consentMarketing:false, montantDon:"", iban:"", bic:"", ibanValid:null });
+    const [errors, setErrors]         = useState({});
+    const [submitting, setSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState(null);
+    const [done, setDone]             = useState(false);
+    const canvasRef = useRef(null);
+    const lastPos   = useRef(null);
+    const [drawing, setDrawing]       = useState(false);
+    const [signature, setSignature]   = useState(null);
+
+    const steps = ["Coordonnées","RGPD","Don","IBAN","Récap & Signature"];
+    const montant = parseFloat(form.montantDon) || 0;
+    const defiscalisation = (montant * 0.66).toFixed(2);
+    const netDon = (montant * 0.34).toFixed(2);
+
+    function update(k, v) {
+      setForm(f => {
+        const n = {...f, [k]:v};
+        if (k === "iban") n.ibanValid = isIBANComplete(v) ? validateIBAN(v) : null;
+        return n;
+      });
+      setErrors(e => ({...e, [k]:undefined}));
+    }
+
+    const inputS = (err, ok) => ({ border:`2px solid ${err?"#f87171":ok?"#22c55e":"#e2e8f0"}`, borderRadius:14, padding:"13px 16px", width:"100%", outline:"none", fontSize:14, fontFamily:font, background:err?"#fff5f5":ok?"#f0fdf4":"white", color:"#1a1a2e", boxSizing:"border-box" });
+    const lbl = { fontSize:11, fontWeight:700, color:"#6b7280", display:"block", marginBottom:6, letterSpacing:".08em", textTransform:"uppercase" };
+
+    function posFromEvent(e, canvas) {
+      const r = canvas.getBoundingClientRect();
+      const src = e.touches ? e.touches[0] : e;
+      return { x:(src.clientX-r.left)*(canvas.width/r.width), y:(src.clientY-r.top)*(canvas.height/r.height) };
+    }
+    function startDraw(e) { e.preventDefault(); lastPos.current = posFromEvent(e, canvasRef.current); setDrawing(true); }
+    function draw(e) {
+      if (!drawing) return; e.preventDefault();
+      const ctx = canvasRef.current.getContext("2d");
+      const p = posFromEvent(e, canvasRef.current);
+      ctx.beginPath(); ctx.strokeStyle="#1a1a2e"; ctx.lineWidth=2.5; ctx.lineCap="round";
+      ctx.moveTo(lastPos.current.x, lastPos.current.y); ctx.lineTo(p.x, p.y); ctx.stroke();
+      lastPos.current = p;
+    }
+    function endDraw(e) { e.preventDefault(); setDrawing(false); setSignature(canvasRef.current.toDataURL()); }
+    function clearSignature() { canvasRef.current.getContext("2d").clearRect(0,0,700,200); setSignature(null); }
+
+    function validate() {
+      const e = {};
+      if (step===0) {
+        if (!form.nom.trim())    e.nom = "Requis";
+        if (!form.prenom.trim()) e.prenom = "Requis";
+        if (!form.dateNaissance) e.dateNaissance = "Requis";
+        if (!form.adresse.trim()) e.adresse = "Requis";
+        if (!form.codePostal.trim()) e.codePostal = "Requis";
+        if (!form.ville.trim())  e.ville = "Requis";
+        if (!form.telephone.trim()) e.telephone = "Requis";
+        if (!form.email.trim() || !form.email.includes("@")) e.email = "Email invalide";
+      }
+      if (step===1 && !form.consentRgpd) e.consentRgpd = "Obligatoire";
+      if (step===3) {
+        if (!form.iban.trim()) e.iban = "Requis";
+        else if (form.ibanValid === false) e.iban = "IBAN invalide";
+        else if (form.ibanValid === null)  e.iban = "IBAN incomplet";
+      }
+      setErrors(e);
+      return Object.keys(e).length === 0;
+    }
+
+    function next() { if (validate()) setStep(s => s+1); }
+    function prev() { setStep(s => s-1); }
+
+    async function handleSubmit() {
+      if (!signature) { alert("Veuillez signer avant de valider."); return; }
+      setSubmitting(true); setSubmitError(null);
+      try {
+        await supabaseInsert("adherents", {
+          nom: form.nom, prenom: form.prenom, date_naissance: form.dateNaissance,
+          adresse: form.adresse, code_postal: form.codePostal, ville: form.ville,
+          telephone: form.telephone, email: form.email,
+          consent_rgpd: form.consentRgpd, consent_marketing: form.consentMarketing,
+          montant_don: form.montantDon ? parseFloat(form.montantDon) : null,
+          reduction_fiscale: form.montantDon ? parseFloat(defiscalisation) : null,
+          cout_net: form.montantDon ? parseFloat(netDon) : null,
+          iban: form.iban, bic: form.bic, signature,
+          collecteur_id: currentUser?.id,
+        });
+        setDone(true);
+        setTimeout(() => {
+          onSuccess && onSuccess();
+          setDone(false); setStep(0);
+          setForm({ nom:"", prenom:"", dateNaissance:"", adresse:"", codePostal:"", ville:"", telephone:"", email: currentUser?.email||"", consentRgpd:false, consentMarketing:false, montantDon:"", iban:"", bic:"", ibanValid:null });
+          setSignature(null);
+        }, 2000);
+      } catch(e) { setSubmitError("Erreur : " + e.message); }
+      setSubmitting(false);
+    }
+
+    if (done) return (
+      <div style={{textAlign:"center",padding:"60px 0"}}>
+        <div style={{width:64,height:64,borderRadius:"50%",background:"#dcfce7",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px",fontSize:28,color:"#16a34a"}}>✓</div>
+        <h3 style={{fontFamily:serif,fontSize:26,color:"#1a1a2e",marginBottom:8}}>Dossier enregistré !</h3>
+        <p style={{color:"#6b7280",fontSize:14}}>Retour au tableau de bord…</p>
+      </div>
+    );
+
+    return (
+      <div>
+        {/* Barre de progression */}
+        <div style={{display:"flex",gap:4,marginBottom:24}}>
+          {steps.map((s,i) => (
+            <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
+              <div style={{width:32,height:32,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,background:i<step?"#22c55e":i===step?"#6d28d9":"#e5e7eb",color:i<=step?"white":"#9ca3af"}}>{i<step?"✓":i+1}</div>
+              <span style={{fontSize:9,color:i===step?"#6d28d9":"#9ca3af",fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",textAlign:"center"}}>{s}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Étape 0 */}
+        {step===0 && (
+          <div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
+              <div><label style={lbl}>Nom</label><input style={inputS(!!errors.nom)} value={form.nom} onChange={e=>update("nom",e.target.value)} placeholder="MARTIN"/>{errors.nom&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.nom}</p>}</div>
+              <div><label style={lbl}>Prénom</label><input style={inputS(!!errors.prenom)} value={form.prenom} onChange={e=>update("prenom",e.target.value)} placeholder="Jean"/>{errors.prenom&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.prenom}</p>}</div>
+            </div>
+            <div style={{marginBottom:16}}><label style={lbl}>Date de naissance</label><input type="date" style={inputS(!!errors.dateNaissance)} value={form.dateNaissance} onChange={e=>update("dateNaissance",e.target.value)}/>{errors.dateNaissance&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.dateNaissance}</p>}</div>
+            <div style={{marginBottom:16}}><label style={lbl}>Adresse</label><input style={inputS(!!errors.adresse)} value={form.adresse} onChange={e=>update("adresse",e.target.value)} placeholder="12 rue de la Paix"/>{errors.adresse&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.adresse}</p>}</div>
+            <div style={{display:"grid",gridTemplateColumns:"160px 1fr",gap:16,marginBottom:16}}>
+              <div><label style={lbl}>Code postal</label><input style={inputS(!!errors.codePostal)} value={form.codePostal} onChange={e=>update("codePostal",e.target.value)} placeholder="75001" maxLength={10}/>{errors.codePostal&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.codePostal}</p>}</div>
+              <div><label style={lbl}>Ville</label><input style={inputS(!!errors.ville)} value={form.ville} onChange={e=>update("ville",e.target.value)} placeholder="Paris"/>{errors.ville&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.ville}</p>}</div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+              <div><label style={lbl}>Téléphone</label><input type="tel" style={inputS(!!errors.telephone)} value={form.telephone} onChange={e=>update("telephone",e.target.value)} placeholder="06 12 34 56 78"/>{errors.telephone&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.telephone}</p>}</div>
+              <div><label style={lbl}>Email</label><input type="email" style={inputS(!!errors.email)} value={form.email} onChange={e=>update("email",e.target.value)} placeholder="jean@email.com"/>{errors.email&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.email}</p>}</div>
+            </div>
+          </div>
+        )}
+
+        {/* Étape 1 */}
+        {step===1 && (
+          <div>
+            <div style={{background:"#f9fafb",borderRadius:14,padding:20,marginBottom:20,maxHeight:200,overflowY:"auto",border:"1px solid #e5e7eb",lineHeight:1.8}}>
+              <h4 style={{fontSize:14,fontWeight:700,color:"#1a1a2e",marginBottom:10}}>Politique de confidentialité</h4>
+              <p style={{fontSize:12,color:"#4b5563"}}>Vos données sont collectées pour la gestion de votre adhésion (Art. 6.1.b RGPD). Elles ne sont jamais vendues. Droit d'accès et rectification : dpo@organisation.fr</p>
+            </div>
+            {[{key:"consentRgpd",required:true,label:"J'accepte la politique de confidentialité et le traitement de mes données."},{key:"consentMarketing",required:false,label:"J'accepte de recevoir des communications. (optionnel)"}].map(({key,required,label}) => (
+              <div key={key} onClick={()=>{setForm(f=>({...f,[key]:!f[key]}));setErrors(e=>({...e,[key]:undefined}));}} style={{display:"flex",gap:14,alignItems:"flex-start",padding:"14px 16px",borderRadius:12,border:`2px solid ${errors[key]?"#f87171":form[key]?"#6d28d9":"#e5e7eb"}`,background:form[key]?"#f5f3ff":"white",cursor:"pointer",marginBottom:10}}>
+                <div style={{width:22,height:22,borderRadius:6,border:`2px solid ${form[key]?"#6d28d9":"#d1d5db"}`,background:form[key]?"#6d28d9":"white",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:1}}>{form[key]&&<span style={{color:"white",fontSize:11,fontWeight:700}}>✓</span>}</div>
+                <p style={{fontSize:13,color:"#374151",lineHeight:1.5,margin:0}}>{label}{required&&<span style={{color:"#ef4444",marginLeft:4}}>*</span>}</p>
+              </div>
+            ))}
+            {errors.consentRgpd&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.consentRgpd}</p>}
+          </div>
+        )}
+
+        {/* Étape 2 */}
+        {step===2 && (
+          <div>
+            <div style={{marginBottom:20}}>
+              <label style={lbl}>Montant du don mensuel (€)</label>
+              <input type="number" min="1" step="0.01" value={form.montantDon} onChange={e=>update("montantDon",e.target.value)} placeholder="Ex : 20" style={inputS(false)}/>
+            </div>
+            {montant > 0 && (
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+                <div style={{background:"#f0fdf4",borderRadius:14,padding:"18px 14px",textAlign:"center",border:"1px solid #bbf7d0"}}>
+                  <p style={{fontSize:10,fontWeight:700,color:"#14532d",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>Réduction 66%</p>
+                  <p style={{fontSize:24,fontWeight:700,color:"#16a34a"}}>{defiscalisation} €</p>
+                </div>
+                <div style={{background:"#f0fdf4",borderRadius:14,padding:"18px 14px",textAlign:"center",border:"1px solid #bbf7d0"}}>
+                  <p style={{fontSize:10,fontWeight:700,color:"#14532d",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>Coût réel</p>
+                  <p style={{fontSize:24,fontWeight:700,color:"#16a34a"}}>{netDon} €</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Étape 3 */}
+        {step===3 && (
+          <div>
+            <div style={{marginBottom:20}}>
+              <label style={lbl}>IBAN</label>
+              <div style={{position:"relative"}}>
+                <input value={form.iban} onChange={e=>update("iban",e.target.value)} placeholder="FR76 3000 6000 0112 3456 7890 189" style={{...inputS(!!errors.iban,form.ibanValid===true),fontFamily:"monospace",letterSpacing:".06em",paddingRight:48}}/>
+                {form.ibanValid!==null&&<div style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",width:24,height:24,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",background:form.ibanValid?"#dcfce7":"#fee2e2",fontSize:12,fontWeight:700,color:form.ibanValid?"#16a34a":"#ef4444"}}>{form.ibanValid?"✓":"✗"}</div>}
+              </div>
+              {form.ibanValid===true&&<p style={{color:"#16a34a",fontSize:12,marginTop:6,fontWeight:600}}>IBAN valide ✓</p>}
+              {errors.iban&&<p style={{color:"#ef4444",fontSize:12,marginTop:6}}>{errors.iban}</p>}
+            </div>
+            <div>
+              <label style={lbl}>BIC / SWIFT</label>
+              <input value={form.bic} onChange={e=>update("bic",e.target.value)} placeholder="BNPAFRPP" style={{...inputS(false,false),fontFamily:"monospace",letterSpacing:".06em"}}/>
+            </div>
+          </div>
+        )}
+
+        {/* Étape 4 */}
+        {step===4 && (
+          <div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+              <div style={{background:"#f9fafb",borderRadius:14,padding:18,border:"1px solid #e5e7eb",gridColumn:"1/-1"}}>
+                <p style={{fontSize:11,fontWeight:700,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>Coordonnées</p>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px 24px"}}>
+                  {[["Nom",`${form.prenom} ${form.nom}`],["Email",form.email],["Téléphone",form.telephone],["Ville",`${form.codePostal} ${form.ville}`]].map(([l,v]) => (
+                    <div key={l} style={{padding:"6px 0",borderBottom:"1px solid #f3f4f6"}}><p style={{fontSize:10,color:"#9ca3af",marginBottom:2,fontWeight:700,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:13,color:"#1a1a2e",fontWeight:500}}>{v||"—"}</p></div>
+                  ))}
+                </div>
+              </div>
+              <div style={{background:"#f9fafb",borderRadius:14,padding:18,border:"1px solid #e5e7eb"}}>
+                <p style={{fontSize:11,fontWeight:700,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>Don</p>
+                {[["Montant",form.montantDon?`${parseFloat(form.montantDon).toFixed(2)} €`:"—"],["Coût net",form.montantDon?`${netDon} €`:"—"]].map(([l,v]) => (
+                  <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #f3f4f6"}}><span style={{fontSize:12,color:"#6b7280"}}>{l}</span><span style={{fontSize:12,fontWeight:700,color:"#1a1a2e"}}>{v}</span></div>
+                ))}
+              </div>
+              <div style={{background:"#f9fafb",borderRadius:14,padding:18,border:"1px solid #e5e7eb"}}>
+                <p style={{fontSize:11,fontWeight:700,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>Bancaire</p>
+                {[["IBAN",form.iban],["BIC",form.bic]].map(([l,v]) => (
+                  <div key={l} style={{padding:"5px 0",borderBottom:"1px solid #f3f4f6"}}><p style={{fontSize:10,color:"#9ca3af",marginBottom:2}}>{l}</p><p style={{fontSize:12,color:"#1a1a2e",fontFamily:"monospace"}}>{v||"—"}</p></div>
+                ))}
+              </div>
+            </div>
+            <div style={{background:"white",borderRadius:14,padding:20,border:"2px dashed #c4b5fd",marginBottom:16}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                <p style={{fontSize:14,fontWeight:700,color:"#1a1a2e"}}>Signature</p>
+                <button onClick={clearSignature} style={{fontSize:12,color:"#6d28d9",background:"#f5f3ff",border:"1px solid #ddd6fe",padding:"5px 14px",borderRadius:20,cursor:"pointer",fontFamily:font}}>Effacer</button>
+              </div>
+              <div style={{background:"#fafaf9",borderRadius:10,border:"1px solid #e5e7eb",position:"relative",touchAction:"none"}}>
+                {!signature&&<div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",color:"#d1d5db",fontSize:13,pointerEvents:"none",fontStyle:"italic"}}>Zone de signature</div>}
+                <canvas ref={canvasRef} width={700} height={160} style={{width:"100%",height:160,display:"block",cursor:"crosshair"}} onMouseDown={startDraw} onMouseMove={draw} onMouseUp={endDraw} onMouseLeave={endDraw} onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={endDraw}/>
+              </div>
+            </div>
+            {submitError&&<div style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:10,padding:"12px 16px",marginBottom:12,color:"#991b1b",fontSize:13}}>{submitError}</div>}
+            <button onClick={handleSubmit} disabled={submitting} style={{width:"100%",padding:"16px",borderRadius:14,border:"none",background:submitting?"#9ca3af":"linear-gradient(135deg,#1e1b4b,#6d28d9)",color:"white",fontSize:15,fontWeight:700,cursor:submitting?"not-allowed":"pointer",fontFamily:font,boxShadow:"0 6px 24px rgba(76,29,149,.4)"}}>
+              {submitting?"Enregistrement…":"Valider et soumettre le dossier ✓"}
+            </button>
+          </div>
+        )}
+
+        {/* Nav */}
+        <div style={{display:"flex",justifyContent:"space-between",marginTop:28,paddingTop:20,borderTop:"1px solid #f3f4f6"}}>
+          <button onClick={prev} disabled={step===0} style={{padding:"11px 24px",borderRadius:11,border:"2px solid #e5e7eb",background:step===0?"#f9fafb":"white",color:step===0?"#d1d5db":"#374151",fontSize:13,fontWeight:600,cursor:step===0?"not-allowed":"pointer",fontFamily:font}}>Précédent</button>
+          <span style={{fontSize:12,color:"#9ca3af",alignSelf:"center"}}>Étape {step+1}/{steps.length}</span>
+          {step<steps.length-1&&<button onClick={next} style={{padding:"11px 28px",borderRadius:11,border:"none",background:"linear-gradient(135deg,#4c1d95,#6d28d9)",color:"white",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:font,boxShadow:"0 4px 16px rgba(76,29,149,.35)"}}>Suivant</button>}
+        </div>
+      </div>
+    );
+  }
+
+  // ── STATS PANEL ───────────────────────────────────────────────────
+  function StatsPanel({ stats }) {
+    if (!stats) return (
+      <div style={{textAlign:"center",padding:40,color:"rgba(255,255,255,0.3)",fontSize:14}} className="loading-dot">
+        Chargement des statistiques…
+      </div>
+    );
+    const items = [
+      { label:"Adhérents trouvés",  value:stats.total,                                          unit:"",   color:"#a78bfa", icon:"👥" },
+      { label:"Âge moyen",          value:stats.avgAge!==null?stats.avgAge.toFixed(1):"—",      unit:"ans",color:"#60a5fa", icon:"🎂" },
+      { label:"Âge médian",         value:stats.medianAge!==null?stats.medianAge.toFixed(0):"—",unit:"ans",color:"#818cf8", icon:"📊" },
+      { label:"Don moyen mensuel",  value:stats.avgDon!==null?stats.avgDon.toFixed(2):"—",      unit:"€",  color:"#34d399", icon:"💸" },
+      { label:"Adhérents / heure",  value:stats.perHour.toFixed(2),                             unit:"/ h",color:"#fb923c", icon:"⏱️" },
+    ];
+    return (
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16}}>
+        {items.map(it => (
+          <div key={it.label} className="card fade-in" style={{textAlign:"center"}}>
+            <div style={{fontSize:26,marginBottom:10}}>{it.icon}</div>
+            <div className="stat-value" style={{color:it.color}}>
+              {it.value}<span style={{fontSize:16,fontWeight:300,color:"rgba(255,255,255,0.4)",marginLeft:4}}>{it.unit}</span>
+            </div>
+            <div className="stat-label">{it.label}</div>
+          </div>
+        ))}
+        <div className="card fade-in" style={{gridColumn:"1/-1",background:"rgba(251,146,60,.08)",borderColor:"rgba(251,146,60,.2)"}}>
+          <p style={{fontSize:11,fontWeight:700,color:"rgba(251,146,60,.7)",letterSpacing:".08em",textTransform:"uppercase",marginBottom:8}}>Base de calcul</p>
+          <p style={{fontSize:13,color:"rgba(255,255,255,0.5)",lineHeight:1.7}}>
+            Le ratio <strong style={{color:"rgba(255,255,255,0.8)"}}>adhérents / heure</strong> est calculé sur une journée de terrain de <strong style={{color:"rgba(255,255,255,0.8)"}}>6 heures effectives</strong>. Avec {stats.total} adhérent{stats.total>1?"s":""}, cela représente <strong style={{color:"#fb923c"}}>{stats.perHour.toFixed(2)} adhérent(s)/heure</strong>.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── APP ───────────────────────────────────────────────────────────
+  function App() {
+    const [currentUser, setCurrentUser] = useState(() => {
+      try { return JSON.parse(sessionStorage.getItem("collecteur")); } catch { return null; }
+    });
+    const [page, setPage]             = useState("dashboard");
+    const [stats, setStats]           = useState(null);
+    const [statsError, setStatsError] = useState(null);
+
+    useEffect(() => { if (currentUser) loadStats(); }, [currentUser]);
+
+    async function loadStats() {
+      try {
+        const rows = await supabaseFetch("adherents");
+        const total = rows.length;
+        const ages = rows.map(r => calcAge(r.date_naissance)).filter(a => a!==null && a>0 && a<120);
+        const avgAge = ages.length>0 ? ages.reduce((s,a)=>s+a,0)/ages.length : null;
+        const sorted = [...ages].sort((a,b)=>a-b);
+        const medianAge = sorted.length>0
+          ? (sorted.length%2===0
+              ? (sorted[sorted.length/2-1]+sorted[sorted.length/2])/2
+              : sorted[Math.floor(sorted.length/2)])
+          : null;
+        const dons = rows.map(r=>parseFloat(r.montant_don)).filter(d=>!isNaN(d)&&d>0);
+        const avgDon = dons.length>0 ? dons.reduce((s,d)=>s+d,0)/dons.length : null;
+        const perHour = total / 6;
+        setStats({ total, avgAge, medianAge, avgDon, perHour });
+      } catch(e) { setStatsError(e.message); }
+    }
+
+    function handleLogout() {
+      sessionStorage.removeItem("collecteur");
+      setCurrentUser(null);
+      setStats(null);
+    }
+
+    if (!currentUser) return <LoginScreen onLogin={user => setCurrentUser(user)} />;
+
+    return (
+      <div style={{minHeight:"100vh",display:"flex",flexDirection:"column"}}>
+        {/* HEADER */}
+        <header style={{background:"rgba(255,255,255,0.03)",borderBottom:"1px solid rgba(255,255,255,0.07)",padding:"0 32px",height:64,display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100,backdropFilter:"blur(12px)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:28}}>
+            <span style={{fontFamily:serif,fontSize:20,color:"white",fontWeight:600}}>Espace Collecteur</span>
+            <nav style={{display:"flex",gap:4}}>
+              {[{key:"dashboard",label:"Accueil",icon:"🏠"},{key:"don",label:"Nouvelle fiche",icon:"📋"}].map(n => (
+                <button key={n.key} onClick={()=>setPage(n.key)} className={`nav-link${page===n.key?" active":""}`} style={{background:page===n.key?"rgba(124,58,237,.2)":undefined}}>
+                  {n.icon} {n.label}
+                </button>
+              ))}
+            </nav>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <span className="badge badge-purple">👤 {currentUser.prenom} {currentUser.nom}</span>
+            <a href="register.html" className="btn-ghost">Créer un compte</a>
+            <a href="admin.html" style={{textDecoration:"none",fontSize:13,padding:"8px 14px",borderRadius:10,background:"rgba(124,58,237,.2)",border:"1px solid rgba(124,58,237,.4)",color:"#a78bfa",fontFamily:font,fontWeight:700}}>⚙️ Admin</a>
+            <button onClick={handleLogout} style={{fontSize:13,padding:"8px 14px",borderRadius:10,border:"1px solid rgba(239,68,68,.3)",background:"rgba(239,68,68,.08)",color:"#f87171",fontFamily:font,fontWeight:600,cursor:"pointer"}}>Déconnexion</button>
+          </div>
+        </header>
+
+        {/* MAIN */}
+        <main style={{flex:1,maxWidth:1100,margin:"0 auto",width:"100%",padding:"36px 24px"}}>
+
+          {page==="dashboard" && (
+            <div className="fade-in">
+              <div style={{marginBottom:36}}>
+                <h1 style={{fontFamily:serif,fontSize:40,color:"white",fontWeight:600,marginBottom:8}}>Bonjour, {currentUser.prenom} 👋</h1>
+                <p style={{color:"rgba(255,255,255,0.5)",fontSize:15}}>Voici un aperçu de votre activité de collecte.</p>
+              </div>
+
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:36}}>
+                <button onClick={()=>setPage("don")} style={{background:"linear-gradient(135deg,#1e1b4b,#4c1d95,#6d28d9)",border:"none",borderRadius:20,padding:"32px 24px",cursor:"pointer",textAlign:"left",color:"white",fontFamily:font,transition:"transform .2s",boxShadow:"0 8px 32px rgba(76,29,149,.35)"}} onMouseEnter={e=>e.currentTarget.style.transform="translateY(-3px)"} onMouseLeave={e=>e.currentTarget.style.transform=""}>
+                  <div style={{fontSize:32,marginBottom:14}}>📋</div>
+                  <h3 style={{fontSize:18,fontWeight:700,marginBottom:6}}>Nouvelle fiche de don</h3>
+                  <p style={{fontSize:13,color:"rgba(255,255,255,0.6)",lineHeight:1.5}}>Enregistrer un nouvel adhérent avec coordonnées, RGPD, don et signature.</p>
+                </button>
+                <a href="admin.html" style={{background:"rgba(124,58,237,.08)",border:"1px solid rgba(124,58,237,.25)",borderRadius:20,padding:"32px 24px",textAlign:"left",color:"white",fontFamily:font,textDecoration:"none",display:"block",transition:"all .2s"}} onMouseEnter={e=>{e.currentTarget.style.background="rgba(124,58,237,.18)";e.currentTarget.style.borderColor="rgba(124,58,237,.5)";}} onMouseLeave={e=>{e.currentTarget.style.background="rgba(124,58,237,.08)";e.currentTarget.style.borderColor="rgba(124,58,237,.25)";}}>
+                  <div style={{fontSize:32,marginBottom:14}}>⚙️</div>
+                  <h3 style={{fontSize:18,fontWeight:700,marginBottom:6}}>Espace Admin</h3>
+                  <p style={{fontSize:13,color:"rgba(255,255,255,0.5)",lineHeight:1.5}}>Statistiques globales, gestion des adhérents et collecteurs.</p>
+                </a>
+              </div>
+
+              {statsError && <div style={{background:"rgba(239,68,68,.15)",border:"1px solid rgba(239,68,68,.3)",borderRadius:12,padding:"14px 18px",color:"#f87171",fontSize:13,marginBottom:20}}>{statsError}</div>}
+              <div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+                  <h2 style={{fontFamily:serif,fontSize:24,color:"white"}}>Aperçu rapide</h2>
+                  <button onClick={loadStats} style={{fontSize:12,color:"rgba(255,255,255,0.4)",background:"none",border:"none",cursor:"pointer",fontFamily:font}}>🔄 Actualiser</button>
+                </div>
+                <StatsPanel stats={stats}/>
+              </div>
+            </div>
+          )}
+
+          {page==="don" && (
+            <div className="fade-in">
+              <div style={{marginBottom:28}}>
+                <button onClick={()=>setPage("dashboard")} style={{background:"none",border:"none",color:"rgba(255,255,255,0.4)",cursor:"pointer",fontFamily:font,fontSize:13,padding:0,marginBottom:16}}>← Retour</button>
+                <h1 style={{fontFamily:serif,fontSize:36,color:"white",fontWeight:600,marginBottom:6}}>Nouvelle fiche de don</h1>
+                <p style={{color:"rgba(255,255,255,0.5)",fontSize:14}}>Remplissez chaque étape pour enregistrer l'adhérent</p>
+              </div>
+              <div style={{background:"#fafaf9",borderRadius:24,padding:"36px 40px",maxWidth:720,boxShadow:"0 24px 64px rgba(0,0,0,0.3)"}}>
+                <DonationPanel currentUser={currentUser} onSuccess={()=>{ loadStats(); setPage("dashboard"); }}/>
+              </div>
+            </div>
+          )}
+        </main>
+
+        {/* FOOTER */}
+        <footer style={{borderTop:"1px solid rgba(255,255,255,0.06)",padding:"16px 32px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span style={{fontSize:12,color:"rgba(255,255,255,0.25)"}}>Espace Collecteur</span>
+          <div style={{display:"flex",gap:16}}>
+            <a href="register.html" style={{fontSize:12,color:"rgba(255,255,255,0.35)",textDecoration:"none"}}>Créer un compte</a>
+            <a href="admin.html" style={{fontSize:12,color:"rgba(255,255,255,0.35)",textDecoration:"none"}}>Admin</a>
+          </div>
+        </footer>
+      </div>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
