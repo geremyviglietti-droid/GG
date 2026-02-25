@@ -51,6 +51,14 @@
     return res.json();
   }
 
+  async function supabaseDelete(table, id) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+      method: "DELETE",
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+    });
+    if (!res.ok) throw new Error(await res.text());
+  }
+
   async function supabaseUpdate(table, id, data) {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
       method: "PATCH",
@@ -101,6 +109,62 @@
   function isIBANComplete(iban) {
     const c = iban.replace(/\s/g,"").toUpperCase();
     return IBAN_LENGTHS[c.slice(0,2)] ? c.length===IBAN_LENGTHS[c.slice(0,2)] : c.length>=15;
+  }
+
+  // ── PIE CHART ─────────────────────────────────────────────────────
+  function PieChart({ data, size = 160 }) {
+    const [hovered, setHovered] = React.useState(null);
+    const total = data.reduce((s, d) => s + d.value, 0);
+    if (total === 0) return <div style={{textAlign:"center",color:"rgba(255,255,255,0.3)",fontSize:12,padding:20}}>Pas encore de données</div>;
+    let cumAngle = -Math.PI / 2;
+    const cx = size / 2, cy = size / 2, r = size / 2 - 8;
+    const slices = data.map(d => {
+      const angle = (d.value / total) * 2 * Math.PI;
+      const x1 = cx + r * Math.cos(cumAngle);
+      const y1 = cy + r * Math.sin(cumAngle);
+      cumAngle += angle;
+      const x2 = cx + r * Math.cos(cumAngle);
+      const y2 = cy + r * Math.sin(cumAngle);
+      const large = angle > Math.PI ? 1 : 0;
+      const midAngle = cumAngle - angle / 2;
+      return { ...d, x1, y1, x2, y2, large, midAngle, pct: Math.round(d.value / total * 100) };
+    }).filter(s => s.value > 0);
+    return (
+      <div style={{display:"flex",alignItems:"center",gap:20,flexWrap:"wrap"}}>
+        <svg width={size} height={size} style={{flexShrink:0}}>
+          {slices.map((s, i) => (
+            <path key={i}
+              d={`M${cx},${cy} L${s.x1},${s.y1} A${r},${r} 0 ${s.large},1 ${s.x2},${s.y2} Z`}
+              fill={s.color}
+              opacity={hovered === null || hovered === i ? 1 : 0.4}
+              stroke="rgba(15,14,26,0.6)" strokeWidth={2}
+              style={{cursor:"pointer",transition:"opacity .2s"}}
+              onMouseEnter={() => setHovered(i)}
+              onMouseLeave={() => setHovered(null)}
+            />
+          ))}
+          {hovered !== null && slices[hovered] && (
+            <text x={cx} y={cy-6} textAnchor="middle" fill="white" fontSize={13} fontWeight="700">{slices[hovered].pct}%</text>
+          )}
+          {hovered !== null && slices[hovered] && (
+            <text x={cx} y={cy+10} textAnchor="middle" fill="rgba(255,255,255,0.6)" fontSize={9}>{slices[hovered].label}</text>
+          )}
+          {hovered === null && (
+            <text x={cx} y={cy+5} textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize={10}>{total} adh.</text>
+          )}
+        </svg>
+        <div style={{display:"flex",flexDirection:"column",gap:5}}>
+          {slices.map((s, i) => (
+            <div key={i} style={{display:"flex",alignItems:"center",gap:7,opacity:hovered===null||hovered===i?1:0.4,transition:"opacity .2s",cursor:"pointer"}}
+              onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}>
+              <div style={{width:10,height:10,borderRadius:3,background:s.color,flexShrink:0}}/>
+              <span style={{fontSize:11,color:"rgba(255,255,255,0.6)"}}>{s.label}</span>
+              <span style={{fontSize:11,fontWeight:700,color:"white",marginLeft:"auto",paddingLeft:8}}>{s.value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   // ── LOGIN SCREEN ──────────────────────────────────────────────────
@@ -737,10 +801,16 @@
 
     useEffect(() => { if (currentUser) loadStats(); }, [currentUser]);
 
+    async function deleteRappel(id) {
+      try {
+        await supabaseDelete("adherents", id);
+        setRappels(prev => prev.filter(r => r.id !== id));
+      } catch(e) { alert("Erreur suppression : " + e.message); }
+    }
+
     async function loadStats() {
       try {
         const rows = await supabaseFetch("adherents", `&collecteur_id=eq.${currentUser.id}`);
-        // Séparer adhérents complets et dossiers incomplets
         const incomplets = rows.filter(r => r.incomplet === true);
         const adherents  = rows.filter(r => !r.incomplet);
         const total = adherents.length;
@@ -754,8 +824,29 @@
           : null;
         const dons = adherents.map(r=>parseFloat(r.montant_don)).filter(d=>!isNaN(d)&&d>0);
         const avgDon = dons.length>0 ? dons.reduce((s,d)=>s+d,0)/dons.length : null;
+        const totalDons = dons.reduce((s,d)=>s+d,0);
         const perHour = total / 6;
-        setStats({ total, avgAge, medianAge, avgDon, perHour });
+        // Tranches d'âge pour camembert
+        const ageTranches = [
+          { label:"18–25", min:18, max:25, color:"#a78bfa" },
+          { label:"26–35", min:26, max:35, color:"#60a5fa" },
+          { label:"36–45", min:36, max:45, color:"#34d399" },
+          { label:"46–57", min:46, max:57, color:"#fbbf24" },
+          { label:"58–69", min:58, max:69, color:"#fb923c" },
+          { label:"70–99", min:70, max:99, color:"#f472b6" },
+        ].map(t => ({ ...t, value: ages.filter(a=>a>=t.min&&a<=t.max).length }));
+        // Tranches de dons
+        const donTranches = [
+          { label:"10–15€",  color:"#a78bfa", value: adherents.filter(r=>r.montant_don>=10&&r.montant_don<15).length },
+          { label:"15–20€",  color:"#60a5fa", value: adherents.filter(r=>r.montant_don>=15&&r.montant_don<20).length },
+          { label:"20–25€",  color:"#34d399", value: adherents.filter(r=>r.montant_don>=20&&r.montant_don<25).length },
+          { label:"25–30€",  color:"#fbbf24", value: adherents.filter(r=>r.montant_don>=25&&r.montant_don<30).length },
+          { label:"35–40€",  color:"#fb923c", value: adherents.filter(r=>r.montant_don>=35&&r.montant_don<40).length },
+          { label:"40–45€",  color:"#f472b6", value: adherents.filter(r=>r.montant_don>=40&&r.montant_don<45).length },
+          { label:"45–50€",  color:"#f87171", value: adherents.filter(r=>r.montant_don>=45&&r.montant_don<50).length },
+          { label:"50€+",    color:"#4ade80", value: adherents.filter(r=>r.montant_don>=50).length },
+        ];
+        setStats({ total, avgAge, medianAge, avgDon, totalDons, perHour, ageTranches, donTranches });
         setRappels(incomplets);
       } catch(e) { setStatsError(e.message); }
     }
@@ -778,6 +869,7 @@
               {[
                 {key:"dashboard",label:"Accueil",icon:"🏠"},
                 {key:"don",label:"Nouvelle fiche",icon:"📋"},
+                {key:"stats",label:"Statistiques",icon:"📊"},
                 {key:"rappels",label:"Rappels",icon:"📞",badge:rappels.length},
               ].map(n => (
                 <button key={n.key} onClick={()=>{setPage(n.key);setRappelSelected(null);}} className={`nav-link${page===n.key?" active":""}`} style={{background:page===n.key?"rgba(124,58,237,.2)":undefined,position:"relative"}}>
@@ -804,14 +896,28 @@
                 <p style={{color:"rgba(255,255,255,0.5)",fontSize:15}}>Voici un aperçu de votre activité de collecte.</p>
               </div>
 
-              <div style={{display:"grid",gridTemplateColumns:"1fr",gap:16,marginBottom:36,maxWidth:480}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:36,maxWidth:760}}>
                 <button onClick={()=>setPage("don")} style={{background:"linear-gradient(135deg,#1e1b4b,#4c1d95,#6d28d9)",border:"none",borderRadius:20,padding:"32px 24px",cursor:"pointer",textAlign:"left",color:"white",fontFamily:font,transition:"transform .2s",boxShadow:"0 8px 32px rgba(76,29,149,.35)"}} onMouseEnter={e=>e.currentTarget.style.transform="translateY(-3px)"} onMouseLeave={e=>e.currentTarget.style.transform=""}>
                   <div style={{fontSize:32,marginBottom:14}}>📋</div>
                   <h3 style={{fontSize:18,fontWeight:700,marginBottom:6}}>Nouvelle fiche de don</h3>
                   <p style={{fontSize:13,color:"rgba(255,255,255,0.6)",lineHeight:1.5}}>Enregistrer un nouvel adhérent avec coordonnées, RGPD, don et signature.</p>
                 </button>
+                <button onClick={()=>setPage("stats")} style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:20,padding:"24px",cursor:"pointer",textAlign:"left",color:"white",fontFamily:font,transition:"all .2s"}} onMouseEnter={e=>{e.currentTarget.style.background="rgba(124,58,237,.1)";e.currentTarget.style.borderColor="rgba(124,58,237,.4)";}} onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.04)";e.currentTarget.style.borderColor="rgba(255,255,255,0.1)";}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
+                    <div style={{fontSize:24}}>🥧</div>
+                    <span style={{fontSize:11,color:"rgba(255,255,255,0.3)",fontWeight:600,textTransform:"uppercase",letterSpacing:".06em"}}>Voir détails →</span>
+                  </div>
+                  <h3 style={{fontSize:16,fontWeight:700,marginBottom:10}}>Mes statistiques</h3>
+                  {stats && stats.ageTranches ? (
+                    <div style={{pointerEvents:"none"}}>
+                      <PieChart data={stats.ageTranches} size={120}/>
+                    </div>
+                  ) : (
+                    <p style={{fontSize:12,color:"rgba(255,255,255,0.35)"}}>Chargement…</p>
+                  )}
+                </button>
                 {rappels.length > 0 && (
-                  <button onClick={()=>setPage("rappels")} style={{background:"rgba(251,146,60,.08)",border:"1px solid rgba(251,146,60,.3)",borderRadius:20,padding:"24px",cursor:"pointer",textAlign:"left",color:"white",fontFamily:font,transition:"all .2s",display:"flex",alignItems:"center",gap:16}} onMouseEnter={e=>{e.currentTarget.style.background="rgba(251,146,60,.15)";}} onMouseLeave={e=>{e.currentTarget.style.background="rgba(251,146,60,.08)";}}>
+                  <button onClick={()=>setPage("rappels")} style={{background:"rgba(251,146,60,.08)",border:"1px solid rgba(251,146,60,.3)",borderRadius:20,padding:"24px",cursor:"pointer",textAlign:"left",color:"white",fontFamily:font,transition:"all .2s",display:"flex",alignItems:"center",gap:16,gridColumn:"1/-1"}} onMouseEnter={e=>{e.currentTarget.style.background="rgba(251,146,60,.15)";}} onMouseLeave={e=>{e.currentTarget.style.background="rgba(251,146,60,.08)";}}>
                     <div style={{width:44,height:44,borderRadius:12,background:"rgba(251,146,60,.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>📞</div>
                     <div>
                       <h3 style={{fontSize:16,fontWeight:700,marginBottom:4,color:"#fb923c"}}>{rappels.length} dossier{rappels.length>1?"s":""} à rappeler</h3>
@@ -835,6 +941,75 @@
 
           {/* ADMIN FLOATING BUTTON */}
           <a href="admin.html" title="Espace Admin" style={{position:"fixed",right:0,top:"50%",transform:"translateY(-50%)",writingMode:"vertical-rl",textOrientation:"mixed",background:"rgba(15,14,26,0.85)",border:"1px solid rgba(124,58,237,.25)",borderRight:"none",borderRadius:"10px 0 0 10px",padding:"14px 8px",color:"rgba(255,255,255,0.25)",fontSize:11,fontFamily:font,fontWeight:600,textDecoration:"none",letterSpacing:".1em",backdropFilter:"blur(8px)",transition:"all .2s",zIndex:200}} onMouseEnter={e=>{e.currentTarget.style.color="rgba(167,139,250,0.8)";e.currentTarget.style.borderColor="rgba(124,58,237,.5)";e.currentTarget.style.background="rgba(124,58,237,.12)";}} onMouseLeave={e=>{e.currentTarget.style.color="rgba(255,255,255,0.25)";e.currentTarget.style.borderColor="rgba(124,58,237,.25)";e.currentTarget.style.background="rgba(15,14,26,0.85)";}}>⚙ ADMIN</a>
+
+          {page==="stats" && (
+            <div className="fade-in">
+              <div style={{marginBottom:32}}>
+                <button onClick={()=>setPage("dashboard")} style={{background:"none",border:"none",color:"rgba(255,255,255,0.4)",cursor:"pointer",fontFamily:font,fontSize:13,padding:0,marginBottom:16}}>← Retour</button>
+                <h1 style={{fontFamily:serif,fontSize:40,color:"white",fontWeight:600,marginBottom:8}}>📊 Mes statistiques</h1>
+                <p style={{color:"rgba(255,255,255,0.5)",fontSize:15}}>Analyse détaillée de votre activité de collecte</p>
+              </div>
+
+              {!stats ? (
+                <div style={{textAlign:"center",padding:60,color:"rgba(255,255,255,0.3)"}} className="loading-dot">Chargement…</div>
+              ) : (
+                <div>
+                  {/* KPIs principaux */}
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16,marginBottom:28}}>
+                    {[
+                      {icon:"👥",label:"Adhérents actifs",value:stats.total,unit:"",color:"#a78bfa"},
+                      {icon:"💸",label:"Don moyen mensuel",value:stats.avgDon!==null?stats.avgDon.toFixed(2):"—",unit:"€",color:"#34d399"},
+                      {icon:"💰",label:"Volume total mensuel",value:stats.totalDons?stats.totalDons.toFixed(2):"0.00",unit:"€",color:"#60a5fa"},
+                      {icon:"🎂",label:"Âge moyen",value:stats.avgAge!==null?stats.avgAge.toFixed(1):"—",unit:"ans",color:"#fb923c"},
+                      {icon:"📊",label:"Âge médian",value:stats.medianAge!==null?stats.medianAge.toFixed(0):"—",unit:"ans",color:"#818cf8"},
+                      {icon:"⏱️",label:"Adhérents / heure",value:stats.perHour.toFixed(2),unit:"/h",color:"#fbbf24"},
+                    ].map(it => (
+                      <div key={it.label} className="card" style={{textAlign:"center",padding:24}}>
+                        <div style={{fontSize:24,marginBottom:8}}>{it.icon}</div>
+                        <div style={{fontFamily:serif,fontSize:32,fontWeight:700,color:it.color,lineHeight:1}}>
+                          {it.value}<span style={{fontSize:15,fontWeight:300,color:"rgba(255,255,255,0.4)",marginLeft:4}}>{it.unit}</span>
+                        </div>
+                        <div style={{fontSize:11,fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",color:"rgba(255,255,255,0.4)",marginTop:8}}>{it.label}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Camemberts côte à côte */}
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20,marginBottom:28}}>
+                    <div className="card">
+                      <h3 style={{fontFamily:serif,fontSize:20,color:"white",marginBottom:20}}>🎂 Répartition par âge</h3>
+                      {stats.ageTranches && <PieChart data={stats.ageTranches} size={180}/>}
+                    </div>
+                    <div className="card">
+                      <h3 style={{fontFamily:serif,fontSize:20,color:"white",marginBottom:20}}>💸 Répartition par don</h3>
+                      {stats.donTranches && <PieChart data={stats.donTranches} size={180}/>}
+                    </div>
+                  </div>
+
+                  {/* Rappels en attente */}
+                  {rappels.length > 0 && (
+                    <div className="card" style={{background:"rgba(251,146,60,.06)",borderColor:"rgba(251,146,60,.2)"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                        <div>
+                          <p style={{fontSize:11,fontWeight:700,color:"rgba(251,146,60,.7)",textTransform:"uppercase",letterSpacing:".08em",marginBottom:4}}>Dossiers incomplets</p>
+                          <p style={{fontFamily:serif,fontSize:28,fontWeight:700,color:"#fb923c"}}>{rappels.length} <span style={{fontSize:16,fontWeight:400,color:"rgba(255,255,255,0.4)"}}>en attente de RIB</span></p>
+                        </div>
+                        <button onClick={()=>setPage("rappels")} style={{padding:"12px 20px",borderRadius:12,border:"1px solid rgba(251,146,60,.4)",background:"rgba(251,146,60,.1)",color:"#fb923c",cursor:"pointer",fontFamily:font,fontSize:13,fontWeight:700}}>Voir les rappels →</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Base de calcul */}
+                  <div className="card" style={{marginTop:16,background:"rgba(251,146,60,.08)",borderColor:"rgba(251,146,60,.2)"}}>
+                    <p style={{fontSize:11,fontWeight:700,color:"rgba(251,146,60,.7)",letterSpacing:".08em",textTransform:"uppercase",marginBottom:8}}>Base de calcul</p>
+                    <p style={{fontSize:13,color:"rgba(255,255,255,0.5)",lineHeight:1.7}}>
+                      Le ratio <strong style={{color:"rgba(255,255,255,0.8)"}}>adhérents / heure</strong> est calculé sur une journée de terrain de <strong style={{color:"rgba(255,255,255,0.8)"}}>6 heures effectives</strong>. Avec {stats.total} adhérent{stats.total>1?"s":""}, cela représente <strong style={{color:"#fb923c"}}>{stats.perHour.toFixed(2)} adhérent(s)/heure</strong>.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {page==="don" && (
             <div className="fade-in">
@@ -927,12 +1102,10 @@
                                 {r.rdv_note && <p style={{fontSize:11,color:"rgba(255,255,255,0.3)",marginTop:2,fontStyle:"italic"}}>"{r.rdv_note}"</p>}
                               </div>
 
-                              {/* Don + action */}
+                              {/* Don + actions */}
                               <div style={{textAlign:"right",flexShrink:0,display:"flex",flexDirection:"column",alignItems:"flex-end",gap:8}}>
                                 {r.montant_don && (
-                                  <div>
-                                    <p style={{fontSize:16,fontWeight:700,color:"#34d399"}}>{parseFloat(r.montant_don).toFixed(2)} €<span style={{fontSize:11,color:"rgba(255,255,255,0.35)",fontWeight:400}}>/mois</span></p>
-                                  </div>
+                                  <p style={{fontSize:16,fontWeight:700,color:"#34d399"}}>{parseFloat(r.montant_don).toFixed(2)} €<span style={{fontSize:11,color:"rgba(255,255,255,0.35)",fontWeight:400}}>/mois</span></p>
                                 )}
                                 <button
                                   onClick={()=>setRappelSelected(r)}
@@ -940,6 +1113,11 @@
                                 >
                                   📝 Finaliser le dossier
                                 </button>
+                                <button
+                                  onClick={()=>{ if(window.confirm(`Supprimer le dossier de ${r.prenom} ${r.nom} ?`)) deleteRappel(r.id); }}
+                                  title="Supprimer ce dossier"
+                                  style={{width:32,height:32,borderRadius:8,border:"1px solid rgba(239,68,68,.3)",background:"rgba(239,68,68,.08)",color:"#f87171",cursor:"pointer",fontFamily:font,fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}
+                                >×</button>
                               </div>
                             </div>
                           );
