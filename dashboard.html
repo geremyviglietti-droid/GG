@@ -51,6 +51,16 @@
     return res.json();
   }
 
+  async function supabaseUpdate(table, id, data) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, Prefer: "return=representation" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  }
+
   async function supabaseInsert(table, data) {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
       method: "POST",
@@ -537,6 +547,148 @@
     );
   }
 
+  // ── COMPLETION PANEL — Finalisation RIB ──────────────────────────
+  function CompletionPanel({ adherent, onSuccess, onCancel }) {
+    const [iban, setIban]           = useState("");
+    const [bic, setBic]             = useState("");
+    const [ibanValid, setIbanValid] = useState(null);
+    const [error, setError]         = useState(null);
+    const [submitting, setSubmitting] = useState(false);
+    const [done, setDone]           = useState(false);
+
+    function updateIban(v) {
+      setIban(v);
+      setIbanValid(isIBANComplete(v) ? validateIBAN(v) : null);
+      setError(null);
+    }
+
+    async function handleSubmit() {
+      if (!iban.trim()) { setError("L'IBAN est requis."); return; }
+      if (ibanValid === false) { setError("IBAN invalide — vérifiez les chiffres."); return; }
+      if (ibanValid === null)  { setError("IBAN incomplet."); return; }
+      setSubmitting(true); setError(null);
+      try {
+        // On ne touche PAS à la signature — elle appartient à l'adhérent
+        await supabaseUpdate("adherents", adherent.id, {
+          iban,
+          bic,
+          incomplet: false,
+          rdv_date: null,
+          rdv_note: null,
+        });
+        setDone(true);
+        setTimeout(() => onSuccess(), 1800);
+      } catch(e) { setError("Erreur : " + e.message); }
+      setSubmitting(false);
+    }
+
+    const inputS = (err, ok) => ({ border:`2px solid ${err?"#f87171":ok?"#22c55e":"#e2e8f0"}`, borderRadius:14, padding:"13px 16px", width:"100%", outline:"none", fontSize:14, fontFamily:font, background:err?"#fff5f5":ok?"#f0fdf4":"white", color:"#1a1a2e", boxSizing:"border-box" });
+    const lbl = { fontSize:11, fontWeight:700, color:"#6b7280", display:"block", marginBottom:6, letterSpacing:".08em", textTransform:"uppercase" };
+    const fmtDate = s => s ? new Date(s+"T00:00").toLocaleDateString("fr-FR",{day:"2-digit",month:"long",year:"numeric"}) : "—";
+
+    if (done) return (
+      <div style={{textAlign:"center",padding:"60px 0"}}>
+        <div style={{width:64,height:64,borderRadius:"50%",background:"#dcfce7",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px",fontSize:28,color:"#16a34a"}}>✓</div>
+        <h3 style={{fontFamily:serif,fontSize:26,color:"#1a1a2e",marginBottom:8}}>Adhésion finalisée !</h3>
+        <p style={{color:"#6b7280",fontSize:14}}>Le RIB est enregistré — l'adhérent est maintenant actif.</p>
+      </div>
+    );
+
+    return (
+      <div>
+        {/* En-tête identité */}
+        <div style={{background:"linear-gradient(135deg,#1e1b4b,#4c1d95)",borderRadius:16,padding:"20px 24px",marginBottom:20,color:"white"}}>
+          <div style={{display:"flex",alignItems:"center",gap:14}}>
+            <div style={{width:48,height:48,borderRadius:14,background:"rgba(255,255,255,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>👤</div>
+            <div>
+              <h2 style={{fontFamily:serif,fontSize:22,fontWeight:600,marginBottom:2}}>{adherent.prenom} {adherent.nom}</h2>
+              <p style={{fontSize:12,opacity:.7}}>Né(e) le {fmtDate(adherent.date_naissance)} · {adherent.ville}</p>
+            </div>
+            {adherent.montant_don && <div style={{marginLeft:"auto",textAlign:"right"}}>
+              <p style={{fontSize:20,fontWeight:700,color:"#34d399"}}>{parseFloat(adherent.montant_don).toFixed(2)} €</p>
+              <p style={{fontSize:10,opacity:.6,textTransform:"uppercase",letterSpacing:".06em"}}>don mensuel</p>
+            </div>}
+          </div>
+        </div>
+
+        {/* Récap fiche */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:20}}>
+          {[
+            {title:"📍 Adresse",     items:[["Adresse",adherent.adresse],["CP / Ville",`${adherent.code_postal||""} ${adherent.ville||""}`]]},
+            {title:"📞 Contact",     items:[["Téléphone",adherent.telephone],["Email",adherent.email]]},
+            {title:"🔒 RGPD",        items:[["Confidentialité",adherent.consent_rgpd?"✅ Accepté":"❌ Refusé"],["Marketing",adherent.consent_marketing?"✅ Accepté":"—"]]},
+            {title:"💸 Don mensuel", items:[["Montant",adherent.montant_don?`${parseFloat(adherent.montant_don).toFixed(2)} €`:"—"],["Coût net",adherent.cout_net?`${parseFloat(adherent.cout_net).toFixed(2)} €`:"—"]]},
+          ].map(sec => (
+            <div key={sec.title} style={{background:"#f9fafb",borderRadius:12,padding:"14px 16px",border:"1px solid #e5e7eb"}}>
+              <p style={{fontSize:10,fontWeight:700,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".08em",marginBottom:10}}>{sec.title}</p>
+              {sec.items.map(([l,v]) => (
+                <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",borderBottom:"1px solid #f3f4f6"}}>
+                  <span style={{fontSize:12,color:"#6b7280"}}>{l}</span>
+                  <span style={{fontSize:12,fontWeight:600,color:"#1a1a2e",textAlign:"right",maxWidth:"60%",wordBreak:"break-all"}}>{v||"—"}</span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+
+        {/* Signature originale — lecture seule, non modifiable */}
+        {adherent.signature && (
+          <div style={{background:"#f9fafb",borderRadius:14,padding:"16px 18px",marginBottom:20,border:"1px solid #e5e7eb"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+              <span style={{fontSize:14}}>✍️</span>
+              <p style={{fontSize:12,fontWeight:700,color:"#374151"}}>Signature de l'adhérent</p>
+              <span style={{fontSize:11,padding:"2px 10px",borderRadius:20,background:"#dcfce7",color:"#16a34a",fontWeight:700,marginLeft:"auto"}}>✓ Enregistrée</span>
+            </div>
+            <img src={adherent.signature} alt="Signature" style={{width:"100%",borderRadius:8,background:"white",padding:8,border:"1px solid #e5e7eb",maxHeight:100,objectFit:"contain"}}/>
+            <p style={{fontSize:11,color:"#9ca3af",marginTop:6,fontStyle:"italic"}}>Signature recueillie lors de l'entretien — elle ne peut pas être modifiée par le recruteur.</p>
+          </div>
+        )}
+
+        {/* Rappel d'origine */}
+        {adherent.rdv_date && (
+          <div style={{background:"#fffbeb",borderRadius:12,padding:"12px 16px",marginBottom:20,border:"1px solid #fde68a",display:"flex",gap:10,alignItems:"flex-start"}}>
+            <span style={{fontSize:18}}>📅</span>
+            <div>
+              <p style={{fontSize:12,fontWeight:700,color:"#92400e",marginBottom:2}}>Rappel d'origine</p>
+              <p style={{fontSize:12,color:"#78350f"}}>{new Date(adherent.rdv_date).toLocaleDateString("fr-FR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"})} à {new Date(adherent.rdv_date).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}</p>
+              {adherent.rdv_note && <p style={{fontSize:11,color:"#d97706",marginTop:2,fontStyle:"italic"}}>"{adherent.rdv_note}"</p>}
+            </div>
+          </div>
+        )}
+
+        {/* Séparateur */}
+        <div style={{borderTop:"2px dashed #e5e7eb",margin:"4px 0 20px",position:"relative"}}>
+          <span style={{position:"absolute",top:-11,left:"50%",transform:"translateX(-50%)",background:"#fafaf9",padding:"0 12px",fontSize:11,color:"#9ca3af",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em"}}>RIB à compléter</span>
+        </div>
+
+        {/* IBAN */}
+        <div style={{marginBottom:16}}>
+          <label style={lbl}>IBAN *</label>
+          <div style={{position:"relative"}}>
+            <input value={iban} onChange={e=>updateIban(e.target.value)} placeholder="FR76 3000 6000 0112 3456 7890 189" style={{...inputS(!!error&&!iban,ibanValid===true),fontFamily:"monospace",letterSpacing:".06em",paddingRight:48}}/>
+            {ibanValid!==null && <div style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",width:24,height:24,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",background:ibanValid?"#dcfce7":"#fee2e2",fontSize:12,fontWeight:700,color:ibanValid?"#16a34a":"#ef4444"}}>{ibanValid?"✓":"✗"}</div>}
+          </div>
+          {ibanValid===true  && <p style={{color:"#16a34a",fontSize:12,marginTop:6,fontWeight:600}}>IBAN valide ✓</p>}
+          {ibanValid===false && <p style={{color:"#ef4444",fontSize:12,marginTop:6}}>IBAN invalide — vérifiez les chiffres</p>}
+        </div>
+
+        <div style={{marginBottom:20}}>
+          <label style={lbl}>BIC / SWIFT</label>
+          <input value={bic} onChange={e=>{setBic(e.target.value);setError(null);}} placeholder="BNPAFRPP" style={{...inputS(false,false),fontFamily:"monospace",letterSpacing:".06em"}}/>
+        </div>
+
+        {error && <div style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:10,padding:"12px 16px",marginBottom:12,color:"#991b1b",fontSize:13}}>⚠️ {error}</div>}
+
+        <div style={{display:"flex",gap:10}}>
+          <button onClick={onCancel} style={{flex:1,padding:"14px",borderRadius:14,border:"2px solid #e5e7eb",background:"white",color:"#374151",fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:font}}>← Retour</button>
+          <button onClick={handleSubmit} disabled={submitting} style={{flex:2,padding:"14px",borderRadius:14,border:"none",background:submitting?"#9ca3af":"linear-gradient(135deg,#1e1b4b,#6d28d9)",color:"white",fontSize:14,fontWeight:700,cursor:submitting?"not-allowed":"pointer",fontFamily:font,boxShadow:"0 6px 24px rgba(76,29,149,.4)"}}>
+            {submitting ? "Enregistrement…" : "Valider le RIB — Finaliser l'adhésion ✓"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // ── STATS PANEL ───────────────────────────────────────────────────
   function StatsPanel({ stats }) {
     if (!stats) return (
@@ -581,14 +733,18 @@
     const [stats, setStats]           = useState(null);
     const [statsError, setStatsError] = useState(null);
     const [rappels, setRappels]       = useState([]);
+    const [rappelSelected, setRappelSelected] = useState(null);
 
     useEffect(() => { if (currentUser) loadStats(); }, [currentUser]);
 
     async function loadStats() {
       try {
         const rows = await supabaseFetch("adherents", `&collecteur_id=eq.${currentUser.id}`);
-        const total = rows.length;
-        const ages = rows.map(r => calcAge(r.date_naissance)).filter(a => a!==null && a>0 && a<120);
+        // Séparer adhérents complets et dossiers incomplets
+        const incomplets = rows.filter(r => r.incomplet === true);
+        const adherents  = rows.filter(r => !r.incomplet);
+        const total = adherents.length;
+        const ages = adherents.map(r => calcAge(r.date_naissance)).filter(a => a!==null && a>0 && a<120);
         const avgAge = ages.length>0 ? ages.reduce((s,a)=>s+a,0)/ages.length : null;
         const sorted = [...ages].sort((a,b)=>a-b);
         const medianAge = sorted.length>0
@@ -596,12 +752,10 @@
               ? (sorted[sorted.length/2-1]+sorted[sorted.length/2])/2
               : sorted[Math.floor(sorted.length/2)])
           : null;
-        const dons = rows.map(r=>parseFloat(r.montant_don)).filter(d=>!isNaN(d)&&d>0);
+        const dons = adherents.map(r=>parseFloat(r.montant_don)).filter(d=>!isNaN(d)&&d>0);
         const avgDon = dons.length>0 ? dons.reduce((s,d)=>s+d,0)/dons.length : null;
         const perHour = total / 6;
         setStats({ total, avgAge, medianAge, avgDon, perHour });
-        // Dossiers incomplets (rappels à faire)
-        const incomplets = rows.filter(r => r.incomplet === true);
         setRappels(incomplets);
       } catch(e) { setStatsError(e.message); }
     }
@@ -621,9 +775,14 @@
           <div style={{display:"flex",alignItems:"center",gap:28}}>
             <span style={{fontFamily:serif,fontSize:20,color:"white",fontWeight:600}}>Espace Collecteur</span>
             <nav style={{display:"flex",gap:4}}>
-              {[{key:"dashboard",label:"Accueil",icon:"🏠"},{key:"don",label:"Nouvelle fiche",icon:"📋"}].map(n => (
-                <button key={n.key} onClick={()=>setPage(n.key)} className={`nav-link${page===n.key?" active":""}`} style={{background:page===n.key?"rgba(124,58,237,.2)":undefined}}>
+              {[
+                {key:"dashboard",label:"Accueil",icon:"🏠"},
+                {key:"don",label:"Nouvelle fiche",icon:"📋"},
+                {key:"rappels",label:"Rappels",icon:"📞",badge:rappels.length},
+              ].map(n => (
+                <button key={n.key} onClick={()=>{setPage(n.key);setRappelSelected(null);}} className={`nav-link${page===n.key?" active":""}`} style={{background:page===n.key?"rgba(124,58,237,.2)":undefined,position:"relative"}}>
                   {n.icon} {n.label}
+                  {n.badge > 0 && <span style={{position:"absolute",top:2,right:2,width:16,height:16,borderRadius:"50%",background:"#ef4444",color:"white",fontSize:9,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>{n.badge}</span>}
                 </button>
               ))}
             </nav>
@@ -651,6 +810,16 @@
                   <h3 style={{fontSize:18,fontWeight:700,marginBottom:6}}>Nouvelle fiche de don</h3>
                   <p style={{fontSize:13,color:"rgba(255,255,255,0.6)",lineHeight:1.5}}>Enregistrer un nouvel adhérent avec coordonnées, RGPD, don et signature.</p>
                 </button>
+                {rappels.length > 0 && (
+                  <button onClick={()=>setPage("rappels")} style={{background:"rgba(251,146,60,.08)",border:"1px solid rgba(251,146,60,.3)",borderRadius:20,padding:"24px",cursor:"pointer",textAlign:"left",color:"white",fontFamily:font,transition:"all .2s",display:"flex",alignItems:"center",gap:16}} onMouseEnter={e=>{e.currentTarget.style.background="rgba(251,146,60,.15)";}} onMouseLeave={e=>{e.currentTarget.style.background="rgba(251,146,60,.08)";}}>
+                    <div style={{width:44,height:44,borderRadius:12,background:"rgba(251,146,60,.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>📞</div>
+                    <div>
+                      <h3 style={{fontSize:16,fontWeight:700,marginBottom:4,color:"#fb923c"}}>{rappels.length} dossier{rappels.length>1?"s":""} à rappeler</h3>
+                      <p style={{fontSize:12,color:"rgba(255,255,255,0.45)"}}>Des adhérents attendent leur RIB — cliquez pour finaliser</p>
+                    </div>
+                    <span style={{marginLeft:"auto",fontSize:18,color:"rgba(251,146,60,.6)"}}>→</span>
+                  </button>
+                )}
               </div>
 
               {statsError && <div style={{background:"rgba(239,68,68,.15)",border:"1px solid rgba(239,68,68,.3)",borderRadius:12,padding:"14px 18px",color:"#f87171",fontSize:13,marginBottom:20}}>{statsError}</div>}
@@ -661,42 +830,6 @@
                 </div>
                 <StatsPanel stats={stats}/>
               </div>
-
-              {/* Rappels — dossiers incomplets */}
-              {rappels.length > 0 && (
-                <div style={{marginTop:36}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-                    <h2 style={{fontFamily:serif,fontSize:24,color:"white"}}>📞 Rappels à effectuer <span style={{fontSize:16,fontWeight:400,color:"rgba(251,146,60,.8)",marginLeft:8}}>({rappels.length})</span></h2>
-                  </div>
-                  <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                    {rappels.map(r => {
-                      const rdvDate = r.rdv_date ? new Date(r.rdv_date) : null;
-                      const isUrgent = rdvDate && rdvDate <= new Date();
-                      return (
-                        <div key={r.id} style={{background:isUrgent?"rgba(239,68,68,.08)":"rgba(251,146,60,.06)",border:`1px solid ${isUrgent?"rgba(239,68,68,.3)":"rgba(251,146,60,.25)"}`,borderRadius:14,padding:"16px 20px",display:"flex",alignItems:"center",gap:16}}>
-                          <div style={{width:40,height:40,borderRadius:12,background:isUrgent?"rgba(239,68,68,.15)":"rgba(251,146,60,.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>
-                            {isUrgent?"🔴":"📅"}
-                          </div>
-                          <div style={{flex:1,minWidth:0}}>
-                            <p style={{fontWeight:700,color:"white",fontSize:14,marginBottom:2}}>{r.prenom} {r.nom}</p>
-                            <p style={{fontSize:12,color:"rgba(255,255,255,0.45)",marginBottom:rdvDate?4:0}}>📞 {r.telephone} &nbsp;·&nbsp; 📧 {r.email}</p>
-                            {rdvDate && <p style={{fontSize:11,color:isUrgent?"#f87171":"rgba(251,146,60,.8)",fontWeight:600}}>
-                              Rappel prévu : {rdvDate.toLocaleDateString("fr-FR",{weekday:"long",day:"2-digit",month:"long"})} à {rdvDate.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}
-                            </p>}
-                            {r.rdv_note && <p style={{fontSize:11,color:"rgba(255,255,255,0.35)",marginTop:2,fontStyle:"italic"}}>"{r.rdv_note}"</p>}
-                          </div>
-                          <div style={{textAlign:"right",flexShrink:0}}>
-                            {r.montant_don && <p style={{fontSize:13,fontWeight:700,color:"#34d399"}}>{parseFloat(r.montant_don).toFixed(2)} €/mois</p>}
-                            <span style={{fontSize:11,padding:"3px 10px",borderRadius:20,background:isUrgent?"rgba(239,68,68,.2)":"rgba(251,146,60,.15)",color:isUrgent?"#f87171":"#fb923c",fontWeight:700}}>
-                              {isUrgent?"En retard":"À venir"}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
@@ -713,6 +846,108 @@
               <div style={{background:"#fafaf9",borderRadius:24,padding:"36px 40px",maxWidth:720,boxShadow:"0 24px 64px rgba(0,0,0,0.3)"}}>
                 <DonationPanel currentUser={currentUser} onSuccess={()=>{ loadStats(); setPage("dashboard"); }}/>
               </div>
+            </div>
+          )}
+
+          {page==="rappels" && (
+            <div className="fade-in">
+              {rappelSelected ? (
+                /* ── VUE FICHE INDIVIDUELLE ── */
+                <div>
+                  <div style={{marginBottom:28}}>
+                    <button onClick={()=>setRappelSelected(null)} style={{background:"none",border:"none",color:"rgba(255,255,255,0.4)",cursor:"pointer",fontFamily:font,fontSize:13,padding:0,marginBottom:16}}>← Retour aux rappels</button>
+                    <h1 style={{fontFamily:serif,fontSize:36,color:"white",fontWeight:600,marginBottom:6}}>Finaliser le dossier</h1>
+                    <p style={{color:"rgba(255,255,255,0.5)",fontSize:14}}>Complétez le RIB manquant pour valider l'adhésion de {rappelSelected.prenom} {rappelSelected.nom}</p>
+                  </div>
+                  <div style={{background:"#fafaf9",borderRadius:24,padding:"36px 40px",maxWidth:720,boxShadow:"0 24px 64px rgba(0,0,0,0.3)"}}>
+                    <CompletionPanel
+                      adherent={rappelSelected}
+                      onSuccess={()=>{ loadStats(); setRappelSelected(null); }}
+                      onCancel={()=>setRappelSelected(null)}
+                    />
+                  </div>
+                </div>
+              ) : (
+                /* ── LISTE DES RAPPELS ── */
+                <div>
+                  <div style={{marginBottom:32}}>
+                    <h1 style={{fontFamily:serif,fontSize:40,color:"white",fontWeight:600,marginBottom:8}}>📞 Dossiers à rappeler</h1>
+                    <p style={{color:"rgba(255,255,255,0.5)",fontSize:15}}>
+                      {rappels.length === 0 ? "Aucun dossier incomplet — tout est à jour !" : `${rappels.length} dossier${rappels.length>1?"s":""} en attente de RIB`}
+                    </p>
+                  </div>
+
+                  {rappels.length === 0 ? (
+                    <div className="card" style={{textAlign:"center",padding:"60px 40px"}}>
+                      <div style={{fontSize:52,marginBottom:16}}>✅</div>
+                      <h3 style={{fontFamily:serif,fontSize:24,color:"white",marginBottom:8}}>Tout est à jour !</h3>
+                      <p style={{color:"rgba(255,255,255,0.4)",fontSize:14}}>Aucun adhérent en attente de RIB.</p>
+                    </div>
+                  ) : (
+                    <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                      {rappels
+                        .slice()
+                        .sort((a,b) => {
+                          // En retard d'abord, puis par date
+                          const now = new Date();
+                          const aUrgent = a.rdv_date && new Date(a.rdv_date) <= now;
+                          const bUrgent = b.rdv_date && new Date(b.rdv_date) <= now;
+                          if (aUrgent && !bUrgent) return -1;
+                          if (!aUrgent && bUrgent) return 1;
+                          if (a.rdv_date && b.rdv_date) return new Date(a.rdv_date) - new Date(b.rdv_date);
+                          if (a.rdv_date) return -1;
+                          if (b.rdv_date) return 1;
+                          return 0;
+                        })
+                        .map(r => {
+                          const rdvDate = r.rdv_date ? new Date(r.rdv_date) : null;
+                          const isUrgent = rdvDate && rdvDate <= new Date();
+                          return (
+                            <div key={r.id} style={{background:isUrgent?"rgba(239,68,68,.06)":"rgba(255,255,255,0.03)",border:`1px solid ${isUrgent?"rgba(239,68,68,.25)":"rgba(251,146,60,.2)"}`,borderRadius:16,padding:"20px 24px",display:"flex",alignItems:"center",gap:16,transition:"border-color .2s"}}>
+                              {/* Indicateur urgence */}
+                              <div style={{width:44,height:44,borderRadius:12,background:isUrgent?"rgba(239,68,68,.15)":"rgba(251,146,60,.1)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>
+                                {isUrgent ? "🔴" : "📅"}
+                              </div>
+
+                              {/* Identité + infos */}
+                              <div style={{flex:1,minWidth:0}}>
+                                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                                  <p style={{fontWeight:700,color:"white",fontSize:15}}>{r.prenom} {r.nom}</p>
+                                  {isUrgent && <span style={{fontSize:10,padding:"2px 8px",borderRadius:20,background:"rgba(239,68,68,.2)",color:"#f87171",fontWeight:700}}>EN RETARD</span>}
+                                </div>
+                                <p style={{fontSize:12,color:"rgba(255,255,255,0.45)",marginBottom:4}}>
+                                  📞 {r.telephone || "—"} &nbsp;·&nbsp; 📧 {r.email || "—"}
+                                  {r.ville && <span> &nbsp;·&nbsp; 📍 {r.ville}</span>}
+                                </p>
+                                {rdvDate && (
+                                  <p style={{fontSize:12,fontWeight:600,color:isUrgent?"#f87171":"#fb923c"}}>
+                                    🗓 {rdvDate.toLocaleDateString("fr-FR",{weekday:"long",day:"2-digit",month:"long"})} à {rdvDate.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}
+                                  </p>
+                                )}
+                                {r.rdv_note && <p style={{fontSize:11,color:"rgba(255,255,255,0.3)",marginTop:2,fontStyle:"italic"}}>"{r.rdv_note}"</p>}
+                              </div>
+
+                              {/* Don + action */}
+                              <div style={{textAlign:"right",flexShrink:0,display:"flex",flexDirection:"column",alignItems:"flex-end",gap:8}}>
+                                {r.montant_don && (
+                                  <div>
+                                    <p style={{fontSize:16,fontWeight:700,color:"#34d399"}}>{parseFloat(r.montant_don).toFixed(2)} €<span style={{fontSize:11,color:"rgba(255,255,255,0.35)",fontWeight:400}}>/mois</span></p>
+                                  </div>
+                                )}
+                                <button
+                                  onClick={()=>setRappelSelected(r)}
+                                  style={{padding:"10px 20px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#4c1d95,#6d28d9)",color:"white",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:font,boxShadow:"0 4px 16px rgba(76,29,149,.35)",whiteSpace:"nowrap"}}
+                                >
+                                  📝 Finaliser le dossier
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </main>
