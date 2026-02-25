@@ -170,6 +170,59 @@
     );
   }
 
+  // ── PIE CHART SVG ─────────────────────────────────────────────────
+  function PieChart({ data, size = 180 }) {
+    const total = data.reduce((s, d) => s + d.value, 0);
+    if (total === 0) return <p style={{color:"rgba(255,255,255,0.3)",fontSize:13,textAlign:"center",padding:"20px 0"}}>Aucune donnée</p>;
+    const cx = size / 2, cy = size / 2, r = size / 2 - 6;
+    let cumAngle = -Math.PI / 2;
+    const slices = data.map(d => {
+      const angle = (d.value / total) * 2 * Math.PI;
+      const x1 = cx + r * Math.cos(cumAngle);
+      const y1 = cy + r * Math.sin(cumAngle);
+      cumAngle += angle;
+      const x2 = cx + r * Math.cos(cumAngle);
+      const y2 = cy + r * Math.sin(cumAngle);
+      const large = angle > Math.PI ? 1 : 0;
+      return { ...d, x1, y1, x2, y2, large, angle, midAngle: cumAngle - angle / 2 };
+    }).filter(s => s.value > 0);
+    const [hovered, setHovered] = React.useState(null);
+    return (
+      <div style={{display:"flex",alignItems:"center",gap:20,flexWrap:"wrap"}}>
+        <svg width={size} height={size} style={{flexShrink:0}}>
+          {slices.map((s, i) => (
+            <path key={i}
+              d={`M ${cx} ${cy} L ${s.x1} ${s.y1} A ${r} ${r} 0 ${s.large} 1 ${s.x2} ${s.y2} Z`}
+              fill={s.color}
+              opacity={hovered === i ? 1 : 0.82}
+              stroke="#0a091a" strokeWidth={2}
+              style={{cursor:"pointer",transition:"opacity .15s"}}
+              onMouseEnter={() => setHovered(i)}
+              onMouseLeave={() => setHovered(null)}
+            />
+          ))}
+          {hovered !== null && slices[hovered] && (
+            <text x={cx} y={cy-8} textAnchor="middle" fill="white" fontSize={13} fontWeight={700}>{slices[hovered].value}</text>
+          )}
+          {hovered !== null && slices[hovered] && (
+            <text x={cx} y={cy+10} textAnchor="middle" fill="rgba(255,255,255,0.5)" fontSize={10}>{((slices[hovered].value/total)*100).toFixed(0)}%</text>
+          )}
+          {hovered === null && <text x={cx} y={cy+5} textAnchor="middle" fill="rgba(255,255,255,0.35)" fontSize={11}>{total} total</text>}
+        </svg>
+        <div style={{flex:1,display:"flex",flexDirection:"column",gap:7}}>
+          {data.map((d, i) => (
+            <div key={i} style={{display:"flex",alignItems:"center",gap:8,opacity:d.value===0?0.35:1}}>
+              <div style={{width:10,height:10,borderRadius:"50%",background:d.color,flexShrink:0}}/>
+              <span style={{fontSize:12,color:"rgba(255,255,255,0.6)",flex:1,whiteSpace:"nowrap"}}>{d.label}</span>
+              <span style={{fontSize:12,fontWeight:700,color:"white"}}>{d.value}</span>
+              <span style={{fontSize:11,color:"rgba(255,255,255,0.3)",minWidth:32,textAlign:"right"}}>{total>0?((d.value/total)*100).toFixed(0):0}%</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   // ── KPI CARD ──────────────────────────────────────────────────────
   function KpiCard({ icon, label, value, unit = "", color = "#a78bfa", sub }) {
     return (
@@ -293,12 +346,16 @@
       const rgpdOk = adherents.filter(r => r.consent_rgpd).length;
       const marketOk = adherents.filter(r => r.consent_marketing).length;
 
-      // Don par tranche
+      // Don par tranche (seulement les dons > 0)
       const tranches = [
-        { label: "0€", value: sansDon },
-        { label: "1-25€", value: adherents.filter(r => r.montant_don > 0 && r.montant_don <= 25).length },
-        { label: "26-100€", value: adherents.filter(r => r.montant_don > 25 && r.montant_don <= 100).length },
-        { label: ">100€", value: adherents.filter(r => r.montant_don > 100).length },
+        { label: "10–15€",  value: adherents.filter(r => r.montant_don >= 10  && r.montant_don < 15).length },
+        { label: "15–20€",  value: adherents.filter(r => r.montant_don >= 15  && r.montant_don < 20).length },
+        { label: "20–25€",  value: adherents.filter(r => r.montant_don >= 20  && r.montant_don < 25).length },
+        { label: "25–30€",  value: adherents.filter(r => r.montant_don >= 25  && r.montant_don < 30).length },
+        { label: "35–40€",  value: adherents.filter(r => r.montant_don >= 35  && r.montant_don < 40).length },
+        { label: "40–45€",  value: adherents.filter(r => r.montant_don >= 40  && r.montant_don < 45).length },
+        { label: "45–50€",  value: adherents.filter(r => r.montant_don >= 45  && r.montant_don < 50).length },
+        { label: "50€+",    value: adherents.filter(r => r.montant_don >= 50).length },
       ];
 
       // Inscriptions par jour (7 derniers jours)
@@ -322,7 +379,17 @@
       const totalReduction = adherents.reduce((s, r) => s + (parseFloat(r.reduction_fiscale) || 0), 0);
       const totalCoutNet = adherents.reduce((s, r) => s + (parseFloat(r.cout_net) || 0), 0);
 
-      return { total, totalDons, avgDon, avgAge, medianAge, avecDon, sansDon, rgpdOk, marketOk, tranches, daily, topVilles, totalReduction, totalCoutNet };
+      // Répartition par tranche d'âge
+      const ageTranches = [
+        { label: "18–25", min: 18, max: 25, color: "#a78bfa" },
+        { label: "26–35", min: 26, max: 35, color: "#60a5fa" },
+        { label: "36–45", min: 36, max: 45, color: "#34d399" },
+        { label: "46–57", min: 46, max: 57, color: "#fbbf24" },
+        { label: "58–69", min: 58, max: 69, color: "#fb923c" },
+        { label: "70–99", min: 70, max: 99, color: "#f472b6" },
+      ].map(t => ({ ...t, value: ages.filter(a => a >= t.min && a <= t.max).length }));
+
+      return { total, totalDons, avgDon, avgAge, medianAge, avecDon, sansDon, rgpdOk, marketOk, tranches, daily, topVilles, totalReduction, totalCoutNet, ageTranches };
     }, [adherents]);
 
     // ── Adherents table ──────────────────────────────────────────
@@ -331,7 +398,7 @@
       const q = search.toLowerCase();
       return adherents.filter(r => {
         const ms = !q || `${r.nom} ${r.prenom} ${r.email} ${r.ville} ${r.telephone}`.toLowerCase().includes(q);
-        const md = !filterDon || (filterDon === "0" && !r.montant_don) || (filterDon === "1" && r.montant_don > 0 && r.montant_don <= 25) || (filterDon === "2" && r.montant_don > 25 && r.montant_don <= 100) || (filterDon === "3" && r.montant_don > 100);
+        const md = !filterDon || (filterDon === "0" && !r.montant_don) || (filterDon === "1" && r.montant_don >= 10 && r.montant_don < 20) || (filterDon === "2" && r.montant_don >= 20 && r.montant_don < 35) || (filterDon === "3" && r.montant_don >= 35 && r.montant_don < 50) || (filterDon === "4" && r.montant_don >= 50);
         return ms && md;
       }).sort((a, b) => {
         const va = a[sortField] ?? "", vb = b[sortField] ?? "";
@@ -355,8 +422,10 @@
 
     const navItems = [
       { key: "overview", label: "Vue d'ensemble", icon: "📊" },
+      { key: "incomplets", label: `Rappels${adherents ? ` (${adherents.filter(a=>a.incomplet).length})` : ""}`, icon: "📞" },
       { key: "adherents", label: `Adhérents${adherents ? ` (${adherents.length})` : ""}`, icon: "👥" },
       { key: "collecteurs", label: `Collecteurs${collecteurs ? ` (${collecteurs.length})` : ""}`, icon: "🚶" },
+      { key: "stats_indiv", label: "Stats par collecteur", icon: "📈" },
     ];
 
     return (
@@ -419,8 +488,9 @@
                   </div>
 
                   {/* KPIs row 2 */}
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16, marginBottom: 28 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 28 }}>
                     <KpiCard icon="✅" label="Avec IBAN / prélèvement" value={adherents.filter(r => r.iban).length} color="#4ade80" sub={`${adherents.length > 0 ? (adherents.filter(r => r.iban).length / adherents.length * 100).toFixed(0) : 0}% du total`} />
+                    <KpiCard icon="📞" label="Rappels en attente" value={adherents.filter(r => r.incomplet).length} color="#fb923c" sub={`Dossiers sans IBAN`} />
                     <KpiCard icon="🚶" label="Collecteurs inscrits" value={collecteurs ? collecteurs.length : "—"} color="#fbbf24" />
                     <KpiCard icon="📍" label="Villes couvertes" value={stats.topVilles.length > 0 ? Object.keys((() => { const v={}; adherents.forEach(r=>{if(r.ville)v[r.ville]=1;}); return v; })()).length : "—"} color="#f472b6" />
                   </div>
@@ -434,6 +504,31 @@
                     <div className="card">
                       <p style={{ fontSize: 13, fontWeight: 700, color: "white", marginBottom: 20 }}>Répartition des dons</p>
                       <MiniBar data={stats.tranches} color="#34d399" />
+                    </div>
+                    <div className="card">
+                      <p style={{ fontSize: 13, fontWeight: 700, color: "white", marginBottom: 16 }}>Top 5 villes</p>
+                      {stats.topVilles.length === 0 ? (
+                        <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 13 }}>Aucune donnée</p>
+                      ) : (
+                        stats.topVilles.map((v, i) => (
+                          <div key={v.label} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", width: 16 }}>{i + 1}.</span>
+                            <div style={{ flex: 1, background: "rgba(255,255,255,0.06)", borderRadius: 4, height: 6, overflow: "hidden" }}>
+                              <div style={{ width: `${(v.value / stats.topVilles[0].value) * 100}%`, height: "100%", background: "#60a5fa", borderRadius: 4 }} />
+                            </div>
+                            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", minWidth: 80 }}>{v.label}</span>
+                            <span className="badge badge-blue">{v.value}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Age pie chart */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 28 }}>
+                    <div className="card">
+                      <p style={{ fontSize: 13, fontWeight: 700, color: "white", marginBottom: 20 }}>🎂 Répartition par tranche d'âge</p>
+                      <PieChart data={stats.ageTranches} size={160} />
                     </div>
                     <div className="card">
                       <p style={{ fontSize: 13, fontWeight: 700, color: "white", marginBottom: 16 }}>Top 5 villes</p>
@@ -468,6 +563,74 @@
             </div>
           )}
 
+          {/* ── INCOMPLETS / RAPPELS ──────────────────────────────── */}
+          {page === "incomplets" && (
+            <div className="fade-in">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24 }}>
+                <div>
+                  <h1 style={{ fontFamily: serif, fontSize: 36, color: "white", fontWeight: 600, marginBottom: 4 }}>📞 Dossiers incomplets — Rappels</h1>
+                  <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 14 }}>Adhérents sans IBAN en attente de rappel téléphonique</p>
+                </div>
+                {adherents && adherents.filter(a=>a.incomplet).length > 0 && (
+                  <button onClick={() => exportCSV(adherents.filter(a=>a.incomplet), "rappels")} style={{ padding: "10px 18px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.06)", color: "white", cursor: "pointer", fontFamily: font, fontSize: 13, fontWeight: 600 }}>📥 Exporter CSV</button>
+                )}
+              </div>
+              {loading ? (
+                <div style={{ textAlign: "center", padding: 60, color: "rgba(255,255,255,0.3)" }} className="loading-dot">Chargement…</div>
+              ) : !adherents || adherents.filter(a=>a.incomplet).length === 0 ? (
+                <div className="card" style={{ textAlign: "center", padding: 60 }}>
+                  <div style={{ fontSize: 40, marginBottom: 16 }}>✅</div>
+                  <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 15 }}>Aucun dossier incomplet — tout est à jour !</p>
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {adherents.filter(a => a.incomplet).map((r, i) => {
+                    const rdvDate = r.rdv_date ? new Date(r.rdv_date) : null;
+                    const isUrgent = rdvDate && rdvDate <= new Date();
+                    const collecteur = collecteurs ? collecteurs.find(c => c.id === r.collecteur_id) : null;
+                    return (
+                      <div key={r.id} style={{ background: isUrgent ? "rgba(239,68,68,.06)" : "rgba(255,255,255,0.03)", border: `1px solid ${isUrgent ? "rgba(239,68,68,.25)" : "rgba(251,146,60,.2)"}`, borderRadius: 16, padding: "20px 24px", display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 16, alignItems: "center" }}>
+                        {/* Identité */}
+                        <div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                            <div style={{ width: 36, height: 36, borderRadius: 10, background: isUrgent ? "rgba(239,68,68,.15)" : "rgba(251,146,60,.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{isUrgent ? "🔴" : "📅"}</div>
+                            <div>
+                              <p style={{ fontWeight: 700, color: "white", fontSize: 15 }}>{r.prenom} {r.nom}</p>
+                              <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)" }}>Enregistré le {fmtDate(r.created_at)}</p>
+                            </div>
+                          </div>
+                        </div>
+                        {/* Contact */}
+                        <div>
+                          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", marginBottom: 4 }}>📞 {r.telephone || "—"}</p>
+                          <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>📧 {r.email || "—"}</p>
+                          {r.montant_don && <p style={{ fontSize: 12, color: "#34d399", fontWeight: 700, marginTop: 4 }}>💸 {parseFloat(r.montant_don).toFixed(2)} €/mois</p>}
+                        </div>
+                        {/* RDV */}
+                        <div>
+                          {rdvDate ? (
+                            <>
+                              <p style={{ fontSize: 12, fontWeight: 700, color: isUrgent ? "#f87171" : "#fb923c", marginBottom: 4 }}>
+                                {isUrgent ? "⚠️ En retard" : "🗓 Prévu le"} {rdvDate.toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit", month: "short" })} à {rdvDate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                              </p>
+                              {r.rdv_note && <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", fontStyle: "italic" }}>"{r.rdv_note}"</p>}
+                            </>
+                          ) : <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)" }}>Aucune date fixée</p>}
+                          {collecteur && <p style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 6 }}>Collecteur : {collecteur.prenom} {collecteur.nom}</p>}
+                        </div>
+                        {/* Actions */}
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <button onClick={() => setSelected(r)} style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)", background: "transparent", color: "white", cursor: "pointer", fontFamily: font, fontSize: 12 }}>Voir</button>
+                          <button onClick={() => setDelConfirm(r)} style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: "#7f1d1d", color: "#fca5a5", cursor: "pointer", fontFamily: font, fontSize: 12, fontWeight: 600 }}>Suppr.</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* ── ADHERENTS TABLE ────────────────────────────────────── */}
           {page === "adherents" && (
             <div className="fade-in">
@@ -488,9 +651,10 @@
                 <select value={filterDon} onChange={e => setFilterDon(e.target.value)} style={{ padding: "11px 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)", background: "#16142a", color: "white", fontFamily: font, fontSize: 13, cursor: "pointer", outline: "none" }}>
                   <option value="">Tous les dons</option>
                   <option value="0">Sans don</option>
-                  <option value="1">1 € – 25 €</option>
-                  <option value="2">26 € – 100 €</option>
-                  <option value="3">+ de 100 €</option>
+                  <option value="1">10€ – 20€</option>
+                  <option value="2">20€ – 35€</option>
+                  <option value="3">35€ – 50€</option>
+                  <option value="4">50€+</option>
                 </select>
               </div>
 
@@ -581,6 +745,94 @@
                       <p style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", marginTop: 8 }}>Inscrit le {fmtDate(c.created_at)}</p>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── STATS PAR COLLECTEUR ──────────────────────────── */}
+          {page === "stats_indiv" && (
+            <div className="fade-in">
+              <div style={{ marginBottom: 32 }}>
+                <h1 style={{ fontFamily: serif, fontSize: 36, color: "white", fontWeight: 600, marginBottom: 6 }}>Statistiques par collecteur</h1>
+                <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 14 }}>Récapitulatif individuel de l'activité de chaque collecteur</p>
+              </div>
+              {!collecteurs || !adherents ? (
+                <div style={{ textAlign: "center", padding: 60, color: "rgba(255,255,255,0.3)" }} className="loading-dot">Chargement…</div>
+              ) : collecteurs.length === 0 ? (
+                <div className="card" style={{ textAlign: "center", padding: 60 }}>
+                  <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 15 }}>Aucun collecteur enregistré</p>
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+                  {collecteurs.map(col => {
+                    const adhs = adherents.filter(a => a.collecteur_id === col.id);
+                    const total = adhs.length;
+                    const dons = adhs.map(r => parseFloat(r.montant_don)).filter(d => !isNaN(d) && d > 0);
+                    const totalDons = dons.reduce((s,d) => s+d, 0);
+                    const avgDon = dons.length > 0 ? totalDons / dons.length : null;
+                    const ages = adhs.map(r => calcAge(r.date_naissance)).filter(a => a !== null && a > 0 && a < 120);
+                    const avgAge = ages.length > 0 ? ages.reduce((s,a) => s+a, 0) / ages.length : null;
+                    const perHour = (total / 6).toFixed(2);
+                    const ageTranches = [
+                      { label: "18–25", min: 18, max: 25, color: "#a78bfa" },
+                      { label: "26–35", min: 26, max: 35, color: "#60a5fa" },
+                      { label: "36–45", min: 36, max: 45, color: "#34d399" },
+                      { label: "46–57", min: 46, max: 57, color: "#fbbf24" },
+                      { label: "58–69", min: 58, max: 69, color: "#fb923c" },
+                      { label: "70–99", min: 70, max: 99, color: "#f472b6" },
+                    ].map(t => ({ ...t, value: ages.filter(a => a >= t.min && a <= t.max).length }));
+
+                    return (
+                      <div key={col.id} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: 28 }}>
+                        {/* Collecteur header */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24, paddingBottom: 20, borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+                          <div style={{ width: 48, height: 48, borderRadius: 14, background: "linear-gradient(135deg,#4c1d95,#6d28d9)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>
+                            {col.role === "admin" ? "⚙️" : col.role === "responsable" ? "👔" : "🚶"}
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <h2 style={{ fontFamily: serif, fontSize: 22, color: "white", fontWeight: 600, marginBottom: 2 }}>{col.prenom} {col.nom}</h2>
+                            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>{col.email}</span>
+                              {col.organisation && <span className="badge badge-purple" style={{ fontSize: 10 }}>{col.organisation}</span>}
+                            </div>
+                          </div>
+                          <div style={{ textAlign: "right" }}>
+                            <div style={{ fontFamily: serif, fontSize: 32, color: "#a78bfa", fontWeight: 700, lineHeight: 1 }}>{total}</div>
+                            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: ".08em", marginTop: 4 }}>adhérent{total !== 1 ? "s" : ""}</div>
+                          </div>
+                        </div>
+
+                        {total === 0 ? (
+                          <p style={{ color: "rgba(255,255,255,0.25)", fontSize: 14, textAlign: "center", padding: "20px 0" }}>Aucun adhérent enregistré par ce collecteur</p>
+                        ) : (
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+                            {/* KPIs */}
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                              {[
+                                { icon: "💸", label: "Don moyen", value: avgDon !== null ? avgDon.toFixed(2) + " €" : "—", color: "#34d399" },
+                                { icon: "💰", label: "Volume total", value: totalDons.toFixed(0) + " €", color: "#60a5fa" },
+                                { icon: "🎂", label: "Âge moyen", value: avgAge !== null ? avgAge.toFixed(1) + " ans" : "—", color: "#fb923c" },
+                                { icon: "⏱️", label: "Ratio / heure", value: perHour + " / h", color: "#fbbf24" },
+                              ].map(kpi => (
+                                <div key={kpi.label} style={{ background: "rgba(255,255,255,0.04)", borderRadius: 14, padding: "16px 18px", border: "1px solid rgba(255,255,255,0.07)" }}>
+                                  <div style={{ fontSize: 20, marginBottom: 8 }}>{kpi.icon}</div>
+                                  <div style={{ fontFamily: serif, fontSize: 22, fontWeight: 700, color: kpi.color, lineHeight: 1, marginBottom: 4 }}>{kpi.value}</div>
+                                  <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: ".08em" }}>{kpi.label}</div>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Pie chart tranche d'âge */}
+                            <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 14, padding: "16px 18px", border: "1px solid rgba(255,255,255,0.07)" }}>
+                              <p style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 14 }}>🎂 Tranche d'âge</p>
+                              <PieChart data={ageTranches} size={140} />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
