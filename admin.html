@@ -330,40 +330,44 @@
 
     useEffect(() => { if (auth) load(); }, [auth, load]);
 
-    // ── Derived stats ────────────────────────────────────────────
+    // ── Derived stats (adhérents complets uniquement) ────────────
+    const adherentsComplets = React.useMemo(() => adherents ? adherents.filter(r => !r.incomplet) : [], [adherents]);
+    const adherentsIncomplets = React.useMemo(() => adherents ? adherents.filter(r => r.incomplet === true) : [], [adherents]);
+
     const stats = useMemo(() => {
-      if (!adherents) return null;
-      const total = adherents.length;
-      const dons = adherents.map(r => parseFloat(r.montant_don)).filter(d => !isNaN(d) && d > 0);
+      const adh = adherentsComplets;
+      if (!adh.length && !adherents) return null;
+      const total = adh.length;
+      const dons = adh.map(r => parseFloat(r.montant_don)).filter(d => !isNaN(d) && d > 0);
       const totalDons = dons.reduce((s, d) => s + d, 0);
       const avgDon = dons.length > 0 ? totalDons / dons.length : null;
-      const ages = adherents.map(r => calcAge(r.date_naissance)).filter(a => a !== null && a > 0 && a < 120);
+      const ages = adh.map(r => calcAge(r.date_naissance)).filter(a => a !== null && a > 0 && a < 120);
       const avgAge = ages.length > 0 ? ages.reduce((s, a) => s + a, 0) / ages.length : null;
       const sortedAges = [...ages].sort((a,b) => a-b);
       const medianAge = sortedAges.length > 0 ? (sortedAges.length % 2 === 0 ? (sortedAges[sortedAges.length/2-1] + sortedAges[sortedAges.length/2]) / 2 : sortedAges[Math.floor(sortedAges.length/2)]) : null;
       const avecDon = dons.length;
       const sansDon = total - avecDon;
-      const rgpdOk = adherents.filter(r => r.consent_rgpd).length;
-      const marketOk = adherents.filter(r => r.consent_marketing).length;
+      const rgpdOk = adh.filter(r => r.consent_rgpd).length;
+      const marketOk = adh.filter(r => r.consent_marketing).length;
 
-      // Don par tranche (seulement les dons > 0)
+      // Don par tranche (adhérents complets seulement)
       const tranches = [
-        { label: "10–15€",  value: adherents.filter(r => r.montant_don >= 10  && r.montant_don < 15).length },
-        { label: "15–20€",  value: adherents.filter(r => r.montant_don >= 15  && r.montant_don < 20).length },
-        { label: "20–25€",  value: adherents.filter(r => r.montant_don >= 20  && r.montant_don < 25).length },
-        { label: "25–30€",  value: adherents.filter(r => r.montant_don >= 25  && r.montant_don < 30).length },
-        { label: "35–40€",  value: adherents.filter(r => r.montant_don >= 35  && r.montant_don < 40).length },
-        { label: "40–45€",  value: adherents.filter(r => r.montant_don >= 40  && r.montant_don < 45).length },
-        { label: "45–50€",  value: adherents.filter(r => r.montant_don >= 45  && r.montant_don < 50).length },
-        { label: "50€+",    value: adherents.filter(r => r.montant_don >= 50).length },
+        { label: "10–15€",  value: adh.filter(r => r.montant_don >= 10  && r.montant_don < 15).length },
+        { label: "15–20€",  value: adh.filter(r => r.montant_don >= 15  && r.montant_don < 20).length },
+        { label: "20–25€",  value: adh.filter(r => r.montant_don >= 20  && r.montant_don < 25).length },
+        { label: "25–30€",  value: adh.filter(r => r.montant_don >= 25  && r.montant_don < 30).length },
+        { label: "35–40€",  value: adh.filter(r => r.montant_don >= 35  && r.montant_don < 40).length },
+        { label: "40–45€",  value: adh.filter(r => r.montant_don >= 40  && r.montant_don < 45).length },
+        { label: "45–50€",  value: adh.filter(r => r.montant_don >= 45  && r.montant_don < 50).length },
+        { label: "50€+",    value: adh.filter(r => r.montant_don >= 50).length },
       ];
 
-      // Inscriptions par jour (7 derniers jours)
+      // Inscriptions par jour (7 derniers jours) — adhérents complets
       const now = new Date();
       const daily = Array.from({ length: 7 }, (_, i) => {
         const d = new Date(now); d.setDate(d.getDate() - (6 - i));
         const label = d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
-        const value = adherents.filter(r => {
+        const value = adh.filter(r => {
           const rd = new Date(r.created_at);
           return rd.toDateString() === d.toDateString();
         }).length;
@@ -372,12 +376,11 @@
 
       // Villes top 5
       const villeCounts = {};
-      adherents.forEach(r => { if (r.ville) villeCounts[r.ville] = (villeCounts[r.ville] || 0) + 1; });
+      adh.forEach(r => { if (r.ville) villeCounts[r.ville] = (villeCounts[r.ville] || 0) + 1; });
       const topVilles = Object.entries(villeCounts).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([label, value]) => ({ label, value }));
 
-      // Réduction fiscale totale
-      const totalReduction = adherents.reduce((s, r) => s + (parseFloat(r.reduction_fiscale) || 0), 0);
-      const totalCoutNet = adherents.reduce((s, r) => s + (parseFloat(r.cout_net) || 0), 0);
+      const totalReduction = adh.reduce((s, r) => s + (parseFloat(r.reduction_fiscale) || 0), 0);
+      const totalCoutNet   = adh.reduce((s, r) => s + (parseFloat(r.cout_net) || 0), 0);
 
       // Répartition par tranche d'âge
       const ageTranches = [
@@ -390,13 +393,12 @@
       ].map(t => ({ ...t, value: ages.filter(a => a >= t.min && a <= t.max).length }));
 
       return { total, totalDons, avgDon, avgAge, medianAge, avecDon, sansDon, rgpdOk, marketOk, tranches, daily, topVilles, totalReduction, totalCoutNet, ageTranches };
-    }, [adherents]);
+    }, [adherentsComplets, adherents]);
 
-    // ── Adherents table ──────────────────────────────────────────
+    // ── Table adhérents (complets uniquement) ────────────────────
     const filtered = useMemo(() => {
-      if (!adherents) return [];
       const q = search.toLowerCase();
-      return adherents.filter(r => {
+      return adherentsComplets.filter(r => {
         const ms = !q || `${r.nom} ${r.prenom} ${r.email} ${r.ville} ${r.telephone}`.toLowerCase().includes(q);
         const md = !filterDon || (filterDon === "0" && !r.montant_don) || (filterDon === "1" && r.montant_don >= 10 && r.montant_don < 20) || (filterDon === "2" && r.montant_don >= 20 && r.montant_don < 35) || (filterDon === "3" && r.montant_don >= 35 && r.montant_don < 50) || (filterDon === "4" && r.montant_don >= 50);
         return ms && md;
@@ -404,7 +406,7 @@
         const va = a[sortField] ?? "", vb = b[sortField] ?? "";
         return sortDir === "asc" ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
       });
-    }, [adherents, search, filterDon, sortField, sortDir]);
+    }, [adherentsComplets, search, filterDon, sortField, sortDir]);
 
     async function handleDelete(id) {
       try { await sbDelete("adherents", id); setAdherents(r => r.filter(x => x.id !== id)); setDelConfirm(null); setSelected(null); }
@@ -421,9 +423,9 @@
     if (!auth) return <Login onLogin={() => setAuth(true)} />;
 
     const navItems = [
-      { key: "overview", label: "Vue d'ensemble", icon: "📊" },
-      { key: "incomplets", label: `Rappels${adherents ? ` (${adherents.filter(a=>a.incomplet).length})` : ""}`, icon: "📞" },
-      { key: "adherents", label: `Adhérents${adherents ? ` (${adherents.length})` : ""}`, icon: "👥" },
+      { key: "overview",    label: "Vue d'ensemble", icon: "📊" },
+      { key: "incomplets",  label: `Incomplets${adherents ? ` (${adherentsIncomplets.length})` : ""}`, icon: "📞" },
+      { key: "adherents",   label: `Adhérents${adherents ? ` (${adherentsComplets.length})` : ""}`, icon: "👥" },
       { key: "collecteurs", label: `Collecteurs${collecteurs ? ` (${collecteurs.length})` : ""}`, icon: "🚶" },
       { key: "stats_indiv", label: "Stats par collecteur", icon: "📈" },
     ];
@@ -481,7 +483,7 @@
                 <>
                   {/* KPIs row 1 */}
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 20 }}>
-                    <KpiCard icon="👥" label="Total adhérents" value={stats.total} color="#a78bfa" />
+                    <KpiCard icon="👥" label="Adhérents actifs" value={stats.total} color="#a78bfa" sub="RIB validé" />
                     <KpiCard icon="💸" label="Don moyen mensuel" value={stats.avgDon !== null ? stats.avgDon.toFixed(2) : "—"} unit="€" color="#34d399" />
                     <KpiCard icon="💰" label="Volume mensuel total" value={stats.totalDons.toFixed(0)} unit="€" color="#60a5fa" sub={`Réduction: ${stats.totalReduction.toFixed(0)} €`} />
                     <KpiCard icon="🎂" label="Âge moyen" value={stats.avgAge !== null ? stats.avgAge.toFixed(1) : "—"} unit="ans" color="#fb923c" sub={`Médiane : ${stats.medianAge !== null ? stats.medianAge.toFixed(0) : "—"} ans`} />
@@ -489,10 +491,10 @@
 
                   {/* KPIs row 2 */}
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 28 }}>
-                    <KpiCard icon="✅" label="Avec IBAN / prélèvement" value={adherents.filter(r => r.iban).length} color="#4ade80" sub={`${adherents.length > 0 ? (adherents.filter(r => r.iban).length / adherents.length * 100).toFixed(0) : 0}% du total`} />
-                    <KpiCard icon="📞" label="Rappels en attente" value={adherents.filter(r => r.incomplet).length} color="#fb923c" sub={`Dossiers sans IBAN`} />
+                    <KpiCard icon="✅" label="Avec IBAN / prélèvement" value={adherentsComplets.filter(r => r.iban).length} color="#4ade80" sub={`${adherentsComplets.length > 0 ? (adherentsComplets.filter(r => r.iban).length / adherentsComplets.length * 100).toFixed(0) : 0}% des actifs`} />
+                    <KpiCard icon="📞" label="Dossiers incomplets" value={adherentsIncomplets.length} color="#fb923c" sub="En attente de RIB" />
                     <KpiCard icon="🚶" label="Collecteurs inscrits" value={collecteurs ? collecteurs.length : "—"} color="#fbbf24" />
-                    <KpiCard icon="📍" label="Villes couvertes" value={stats.topVilles.length > 0 ? Object.keys((() => { const v={}; adherents.forEach(r=>{if(r.ville)v[r.ville]=1;}); return v; })()).length : "—"} color="#f472b6" />
+                    <KpiCard icon="📍" label="Villes couvertes" value={stats.topVilles.length > 0 ? Object.keys((() => { const v={}; adherentsComplets.forEach(r=>{if(r.ville)v[r.ville]=1;}); return v; })()).length : "—"} color="#f472b6" />
                   </div>
 
                   {/* Charts row */}
@@ -552,11 +554,16 @@
                   {/* Quick actions */}
                   <div style={{ display: "flex", gap: 12 }}>
                     <button onClick={() => { setPage("adherents"); }} style={{ padding: "12px 20px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.8)", cursor: "pointer", fontFamily: font, fontSize: 13, fontWeight: 600 }}>
-                      👥 Voir tous les adhérents
+                      👥 Voir les adhérents actifs ({adherentsComplets.length})
                     </button>
-                    <button onClick={() => exportCSV(adherents, "adherents_global")} style={{ padding: "12px 20px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.8)", cursor: "pointer", fontFamily: font, fontSize: 13, fontWeight: 600 }}>
-                      📥 Exporter tout en CSV
+                    <button onClick={() => exportCSV(adherentsComplets, "adherents_actifs")} style={{ padding: "12px 20px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.8)", cursor: "pointer", fontFamily: font, fontSize: 13, fontWeight: 600 }}>
+                      📥 Exporter adhérents actifs (CSV)
                     </button>
+                    {adherentsIncomplets.length > 0 && (
+                      <button onClick={() => setPage("incomplets")} style={{ padding: "12px 20px", borderRadius: 12, border: "1px solid rgba(251,146,60,.3)", background: "rgba(251,146,60,.08)", color: "#fb923c", cursor: "pointer", fontFamily: font, fontSize: 13, fontWeight: 600 }}>
+                        📞 {adherentsIncomplets.length} dossier{adherentsIncomplets.length > 1 ? "s" : ""} incomplet{adherentsIncomplets.length > 1 ? "s" : ""}
+                      </button>
+                    )}
                   </div>
                 </>
               )}
@@ -568,23 +575,23 @@
             <div className="fade-in">
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24 }}>
                 <div>
-                  <h1 style={{ fontFamily: serif, fontSize: 36, color: "white", fontWeight: 600, marginBottom: 4 }}>📞 Dossiers incomplets — Rappels</h1>
-                  <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 14 }}>Adhérents sans IBAN en attente de rappel téléphonique</p>
+                  <h1 style={{ fontFamily: serif, fontSize: 36, color: "white", fontWeight: 600, marginBottom: 4 }}>📞 Dossiers incomplets</h1>
+                  <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 14 }}>Prospects en attente de RIB — <strong style={{color:"#fb923c"}}>pas encore adhérents</strong></p>
                 </div>
-                {adherents && adherents.filter(a=>a.incomplet).length > 0 && (
-                  <button onClick={() => exportCSV(adherents.filter(a=>a.incomplet), "rappels")} style={{ padding: "10px 18px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.06)", color: "white", cursor: "pointer", fontFamily: font, fontSize: 13, fontWeight: 600 }}>📥 Exporter CSV</button>
+                {adherentsIncomplets.length > 0 && (
+                  <button onClick={() => exportCSV(adherentsIncomplets, "rappels")} style={{ padding: "10px 18px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.06)", color: "white", cursor: "pointer", fontFamily: font, fontSize: 13, fontWeight: 600 }}>📥 Exporter CSV</button>
                 )}
               </div>
               {loading ? (
                 <div style={{ textAlign: "center", padding: 60, color: "rgba(255,255,255,0.3)" }} className="loading-dot">Chargement…</div>
-              ) : !adherents || adherents.filter(a=>a.incomplet).length === 0 ? (
+              ) : adherentsIncomplets.length === 0 ? (
                 <div className="card" style={{ textAlign: "center", padding: 60 }}>
                   <div style={{ fontSize: 40, marginBottom: 16 }}>✅</div>
                   <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 15 }}>Aucun dossier incomplet — tout est à jour !</p>
                 </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {adherents.filter(a => a.incomplet).map((r, i) => {
+                  {adherentsIncomplets.map((r, i) => {
                     const rdvDate = r.rdv_date ? new Date(r.rdv_date) : null;
                     const isUrgent = rdvDate && rdvDate <= new Date();
                     const collecteur = collecteurs ? collecteurs.find(c => c.id === r.collecteur_id) : null;
@@ -599,12 +606,13 @@
                               <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)" }}>Enregistré le {fmtDate(r.created_at)}</p>
                             </div>
                           </div>
+                          <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 20, background: "rgba(251,146,60,.15)", color: "#fb923c", fontWeight: 700 }}>⏳ INCOMPLET — PAS ADHÉRENT</span>
                         </div>
                         {/* Contact */}
                         <div>
                           <p style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", marginBottom: 4 }}>📞 {r.telephone || "—"}</p>
                           <p style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>📧 {r.email || "—"}</p>
-                          {r.montant_don && <p style={{ fontSize: 12, color: "#34d399", fontWeight: 700, marginTop: 4 }}>💸 {parseFloat(r.montant_don).toFixed(2)} €/mois</p>}
+                          {r.montant_don && <p style={{ fontSize: 12, color: "#34d399", fontWeight: 700, marginTop: 4 }}>💸 {parseFloat(r.montant_don).toFixed(2)} €/mois <span style={{color:"rgba(255,255,255,0.3)",fontWeight:400}}>(promis)</span></p>}
                         </div>
                         {/* RDV */}
                         <div>
@@ -637,11 +645,10 @@
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24 }}>
                 <div>
                   <h1 style={{ fontFamily: serif, fontSize: 36, color: "white", fontWeight: 600, marginBottom: 4 }}>Adhérents</h1>
-                  <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 14 }}>{filtered.length} résultat{filtered.length !== 1 ? "s" : ""}{adherents && ` sur ${adherents.length} au total`}</p>
+                  <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 14 }}>{filtered.length} résultat{filtered.length !== 1 ? "s" : ""}{adherentsComplets && ` sur ${adherentsComplets.length} adhérents actifs`}</p>
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>
-                  <button onClick={() => exportCSV(filtered, "adherents")} style={{ padding: "10px 18px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.06)", color: "white", cursor: "pointer", fontFamily: font, fontSize: 13, fontWeight: 600 }}>📥 Exporter CSV</button>
-                  <button onClick={load} style={{ padding: "10px 18px", borderRadius: 10, border: "none", background: "rgba(255,255,255,0.07)", color: "white", cursor: "pointer", fontFamily: font, fontSize: 13, fontWeight: 600 }}>🔄 Actualiser</button>
+                  <button onClick={() => exportCSV(filtered, "adherents")} style={{ padding: "10px 18px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.06)", color: "white", cursor: "pointer", fontFamily: font, fontSize: 13, fontWeight: 600 }}>📥 Exporter CSV</button>                  <button onClick={load} style={{ padding: "10px 18px", borderRadius: 10, border: "none", background: "rgba(255,255,255,0.07)", color: "white", cursor: "pointer", fontFamily: font, fontSize: 13, fontWeight: 600 }}>🔄 Actualiser</button>
                 </div>
               </div>
 
@@ -766,7 +773,8 @@
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
                   {collecteurs.map(col => {
-                    const adhs = adherents.filter(a => a.collecteur_id === col.id);
+                    const adhs = adherents.filter(a => a.collecteur_id === col.id && !a.incomplet);
+                    const incom = adherents.filter(a => a.collecteur_id === col.id && a.incomplet === true);
                     const total = adhs.length;
                     const dons = adhs.map(r => parseFloat(r.montant_don)).filter(d => !isNaN(d) && d > 0);
                     const totalDons = dons.reduce((s,d) => s+d, 0);
@@ -799,7 +807,8 @@
                           </div>
                           <div style={{ textAlign: "right" }}>
                             <div style={{ fontFamily: serif, fontSize: 32, color: "#a78bfa", fontWeight: 700, lineHeight: 1 }}>{total}</div>
-                            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: ".08em", marginTop: 4 }}>adhérent{total !== 1 ? "s" : ""}</div>
+                            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: ".08em", marginTop: 4 }}>adhérent{total !== 1 ? "s" : ""} actif{total !== 1 ? "s" : ""}</div>
+                            {incom.length > 0 && <div style={{ fontSize: 11, color: "#fb923c", fontWeight: 700, marginTop: 4 }}>+ {incom.length} incomplet{incom.length > 1 ? "s" : ""}</div>}
                           </div>
                         </div>
 
