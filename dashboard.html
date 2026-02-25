@@ -164,7 +164,7 @@
   // ── DONATION PANEL ────────────────────────────────────────────────
   function DonationPanel({ currentUser, onSuccess }) {
     const [step, setStep]             = useState(0);
-    const [form, setForm]             = useState({ nom:"", prenom:"", dateNaissance:"", adresse:"", codePostal:"", ville:"", telephone:"", email: currentUser?.email||"", consentRgpd:false, consentMarketing:false, montantDon:"", iban:"", bic:"", ibanValid:null });
+    const [form, setForm]             = useState({ nom:"", prenom:"", dateNaissance:"", adresse:"", codePostal:"", ville:"", telephone:"", email: currentUser?.email||"", consentRgpd:false, consentMarketing:false, montantDon:"", iban:"", bic:"", ibanValid:null, rdvDate:"", rdvHeure:"", rdvNote:"", ibanDiffere:false });
     const [errors, setErrors]         = useState({});
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState(null);
@@ -222,9 +222,14 @@
       }
       if (step===1 && !form.consentRgpd) e.consentRgpd = "Obligatoire";
       if (step===3) {
-        if (!form.iban.trim()) e.iban = "Requis";
-        else if (form.ibanValid === false) e.iban = "IBAN invalide";
-        else if (form.ibanValid === null)  e.iban = "IBAN incomplet";
+        if (!form.ibanDiffere) {
+          if (!form.iban.trim()) e.iban = "Requis";
+          else if (form.ibanValid === false) e.iban = "IBAN invalide";
+          else if (form.ibanValid === null)  e.iban = "IBAN incomplet";
+        } else {
+          if (!form.rdvDate) e.rdvDate = "Veuillez choisir une date de rappel";
+          if (!form.rdvHeure) e.rdvHeure = "Veuillez choisir une heure";
+        }
       }
       setErrors(e);
       return Object.keys(e).length === 0;
@@ -245,14 +250,19 @@
           montant_don: form.montantDon ? parseFloat(form.montantDon) : null,
           reduction_fiscale: form.montantDon ? parseFloat(defiscalisation) : null,
           cout_net: form.montantDon ? parseFloat(netDon) : null,
-          iban: form.iban, bic: form.bic, signature,
+          iban: form.ibanDiffere ? null : form.iban,
+          bic: form.ibanDiffere ? null : form.bic,
+          signature,
           collecteur_id: currentUser?.id,
+          incomplet: form.ibanDiffere ? true : false,
+          rdv_date: form.ibanDiffere && form.rdvDate ? `${form.rdvDate}T${form.rdvHeure||"10:00"}` : null,
+          rdv_note: form.ibanDiffere ? form.rdvNote : null,
         });
         setDone(true);
         setTimeout(() => {
           onSuccess && onSuccess();
           setDone(false); setStep(0);
-          setForm({ nom:"", prenom:"", dateNaissance:"", adresse:"", codePostal:"", ville:"", telephone:"", email: currentUser?.email||"", consentRgpd:false, consentMarketing:false, montantDon:"", iban:"", bic:"", ibanValid:null });
+          setForm({ nom:"", prenom:"", dateNaissance:"", adresse:"", codePostal:"", ville:"", telephone:"", email: currentUser?.email||"", consentRgpd:false, consentMarketing:false, montantDon:"", iban:"", bic:"", ibanValid:null, rdvDate:"", rdvHeure:"", rdvNote:"", ibanDiffere:false });
           setSignature(null);
         }, 2000);
       } catch(e) { setSubmitError("Erreur : " + e.message); }
@@ -299,20 +309,47 @@
           </div>
         )}
 
-        {/* Étape 1 */}
+        {/* Étape 1 — RGPD */}
         {step===1 && (
           <div>
-            <div style={{background:"#f9fafb",borderRadius:14,padding:20,marginBottom:20,maxHeight:200,overflowY:"auto",border:"1px solid #e5e7eb",lineHeight:1.8}}>
-              <h4 style={{fontSize:14,fontWeight:700,color:"#1a1a2e",marginBottom:10}}>Politique de confidentialité</h4>
-              <p style={{fontSize:12,color:"#4b5563"}}>Vos données sont collectées pour la gestion de votre adhésion (Art. 6.1.b RGPD). Elles ne sont jamais vendues. Droit d'accès et rectification : dpo@organisation.fr</p>
+            <div style={{marginBottom:20}}>
+              <h3 style={{fontSize:16,fontWeight:700,color:"#1a1a2e",marginBottom:4}}>Protection de vos données personnelles</h3>
+              <p style={{fontSize:12,color:"#6b7280",lineHeight:1.6}}>Conformément au Règlement Général sur la Protection des Données (RGPD – UE 2016/679), nous vous informons de l'utilisation de vos données.</p>
             </div>
-            {[{key:"consentRgpd",required:true,label:"J'accepte la politique de confidentialité et le traitement de mes données."},{key:"consentMarketing",required:false,label:"J'accepte de recevoir des communications. (optionnel)"}].map(({key,required,label}) => (
-              <div key={key} onClick={()=>{setForm(f=>({...f,[key]:!f[key]}));setErrors(e=>({...e,[key]:undefined}));}} style={{display:"flex",gap:14,alignItems:"flex-start",padding:"14px 16px",borderRadius:12,border:`2px solid ${errors[key]?"#f87171":form[key]?"#6d28d9":"#e5e7eb"}`,background:form[key]?"#f5f3ff":"white",cursor:"pointer",marginBottom:10}}>
-                <div style={{width:22,height:22,borderRadius:6,border:`2px solid ${form[key]?"#6d28d9":"#d1d5db"}`,background:form[key]?"#6d28d9":"white",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:1}}>{form[key]&&<span style={{color:"white",fontSize:11,fontWeight:700}}>✓</span>}</div>
-                <p style={{fontSize:13,color:"#374151",lineHeight:1.5,margin:0}}>{label}{required&&<span style={{color:"#ef4444",marginLeft:4}}>*</span>}</p>
+
+            <div style={{background:"#f9fafb",borderRadius:14,padding:"18px 20px",marginBottom:16,border:"1px solid #e5e7eb"}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+                {[
+                  {icon:"🎯",title:"Finalité de la collecte",text:"Gestion de votre adhésion, traitement du prélèvement SEPA mensuel et suivi de votre dossier de donateur."},
+                  {icon:"⚖️",title:"Base légale",text:"Art. 6.1.b RGPD — Exécution d'un contrat. Le traitement est nécessaire à l'exécution de votre adhésion."},
+                  {icon:"🔒",title:"Sécurité & conservation",text:"Vos données sont chiffrées (TLS 1.3) et conservées 3 ans après la fin de votre adhésion, puis archivées 5 ans (obligations légales)."},
+                  {icon:"🚫",title:"Pas de vente de données",text:"Vos données ne sont jamais vendues ni cédées à des tiers à des fins commerciales. Accès strictement limité à notre organisation."},
+                ].map(item => (
+                  <div key={item.title} style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+                    <span style={{fontSize:18,flexShrink:0}}>{item.icon}</span>
+                    <div>
+                      <p style={{fontSize:12,fontWeight:700,color:"#1a1a2e",marginBottom:3}}>{item.title}</p>
+                      <p style={{fontSize:11,color:"#6b7280",lineHeight:1.55}}>{item.text}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-            {errors.consentRgpd&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.consentRgpd}</p>}
+            </div>
+
+            <div style={{background:"#eff6ff",borderRadius:12,padding:"12px 16px",marginBottom:16,border:"1px solid #bfdbfe"}}>
+              <p style={{fontSize:12,color:"#1e40af",fontWeight:600,marginBottom:4}}>Vos droits (Art. 15 à 22 RGPD)</p>
+              <p style={{fontSize:12,color:"#1d4ed8",lineHeight:1.6}}>Vous disposez d'un droit d'<strong>accès</strong>, de <strong>rectification</strong>, d'<strong>effacement</strong>, de <strong>portabilité</strong> et d'<strong>opposition</strong> au traitement de vos données. Pour exercer vos droits : <span style={{fontWeight:700}}>dpo@organisation.fr</span></p>
+            </div>
+
+            <div style={{marginTop:4}}>
+              {[{key:"consentRgpd",required:true,label:"J'ai lu et j'accepte la politique de confidentialité. J'autorise le traitement de mes données personnelles dans le cadre de mon adhésion."},{key:"consentMarketing",required:false,label:"J'accepte de recevoir des communications sur les actualités et les actions de l'organisation. (optionnel)"}].map(({key,required,label}) => (
+                <div key={key} onClick={()=>{setForm(f=>({...f,[key]:!f[key]}));setErrors(e=>({...e,[key]:undefined}));}} style={{display:"flex",gap:14,alignItems:"flex-start",padding:"14px 16px",borderRadius:12,border:`2px solid ${errors[key]?"#f87171":form[key]?"#6d28d9":"#e5e7eb"}`,background:form[key]?"#f5f3ff":"white",cursor:"pointer",marginBottom:10,transition:"all .15s"}}>
+                  <div style={{width:22,height:22,borderRadius:6,border:`2px solid ${form[key]?"#6d28d9":"#d1d5db"}`,background:form[key]?"#6d28d9":"white",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:1}}>{form[key]&&<span style={{color:"white",fontSize:11,fontWeight:700}}>✓</span>}</div>
+                  <p style={{fontSize:13,color:"#374151",lineHeight:1.5,margin:0}}>{label}{required&&<span style={{color:"#ef4444",marginLeft:4}}>*</span>}</p>
+                </div>
+              ))}
+              {errors.consentRgpd&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.consentRgpd}</p>}
+            </div>
           </div>
         )}
 
@@ -338,53 +375,144 @@
           </div>
         )}
 
-        {/* Étape 3 */}
+        {/* Étape 3 — IBAN + option RDV */}
         {step===3 && (
           <div>
             <div style={{marginBottom:20}}>
-              <label style={lbl}>IBAN</label>
-              <div style={{position:"relative"}}>
-                <input value={form.iban} onChange={e=>update("iban",e.target.value)} placeholder="FR76 3000 6000 0112 3456 7890 189" style={{...inputS(!!errors.iban,form.ibanValid===true),fontFamily:"monospace",letterSpacing:".06em",paddingRight:48}}/>
-                {form.ibanValid!==null&&<div style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",width:24,height:24,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",background:form.ibanValid?"#dcfce7":"#fee2e2",fontSize:12,fontWeight:700,color:form.ibanValid?"#16a34a":"#ef4444"}}>{form.ibanValid?"✓":"✗"}</div>}
+              <h3 style={{fontSize:16,fontWeight:700,color:"#1a1a2e",marginBottom:4}}>Coordonnées bancaires</h3>
+              <p style={{fontSize:12,color:"#6b7280"}}>Saisissez l'IBAN pour le prélèvement SEPA, ou programmez un rappel si l'adhérent ne l'a pas sur lui.</p>
+            </div>
+
+            {/* Toggle IBAN / RDV */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:20}}>
+              <div onClick={()=>update("ibanDiffere",false)} style={{padding:"12px 14px",borderRadius:12,border:`2px solid ${!form.ibanDiffere?"#6d28d9":"#e5e7eb"}`,background:!form.ibanDiffere?"#f5f3ff":"white",cursor:"pointer",textAlign:"center",transition:"all .15s"}}>
+                <div style={{fontSize:20,marginBottom:4}}>🏦</div>
+                <p style={{fontSize:13,fontWeight:700,color:!form.ibanDiffere?"#4c1d95":"#374151"}}>IBAN disponible</p>
+                <p style={{fontSize:11,color:"#9ca3af"}}>Saisir maintenant</p>
               </div>
-              {form.ibanValid===true&&<p style={{color:"#16a34a",fontSize:12,marginTop:6,fontWeight:600}}>IBAN valide ✓</p>}
-              {errors.iban&&<p style={{color:"#ef4444",fontSize:12,marginTop:6}}>{errors.iban}</p>}
+              <div onClick={()=>update("ibanDiffere",true)} style={{padding:"12px 14px",borderRadius:12,border:`2px solid ${form.ibanDiffere?"#f59e0b":"#e5e7eb"}`,background:form.ibanDiffere?"#fffbeb":"white",cursor:"pointer",textAlign:"center",transition:"all .15s"}}>
+                <div style={{fontSize:20,marginBottom:4}}>📅</div>
+                <p style={{fontSize:13,fontWeight:700,color:form.ibanDiffere?"#92400e":"#374151"}}>Rappel à programmer</p>
+                <p style={{fontSize:11,color:"#9ca3af"}}>L'adhérent n'a pas l'IBAN</p>
+              </div>
             </div>
-            <div>
-              <label style={lbl}>BIC / SWIFT</label>
-              <input value={form.bic} onChange={e=>update("bic",e.target.value)} placeholder="BNPAFRPP" style={{...inputS(false,false),fontFamily:"monospace",letterSpacing:".06em"}}/>
-            </div>
+
+            {!form.ibanDiffere ? (
+              <div>
+                <div style={{marginBottom:16}}>
+                  <label style={lbl}>IBAN</label>
+                  <div style={{position:"relative"}}>
+                    <input value={form.iban} onChange={e=>update("iban",e.target.value)} placeholder="FR76 3000 6000 0112 3456 7890 189" style={{...inputS(!!errors.iban,form.ibanValid===true),fontFamily:"monospace",letterSpacing:".06em",paddingRight:48}}/>
+                    {form.ibanValid!==null&&<div style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",width:24,height:24,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",background:form.ibanValid?"#dcfce7":"#fee2e2",fontSize:12,fontWeight:700,color:form.ibanValid?"#16a34a":"#ef4444"}}>{form.ibanValid?"✓":"✗"}</div>}
+                  </div>
+                  {form.ibanValid===true&&<p style={{color:"#16a34a",fontSize:12,marginTop:6,fontWeight:600}}>IBAN valide ✓</p>}
+                  {errors.iban&&<p style={{color:"#ef4444",fontSize:12,marginTop:6}}>{errors.iban}</p>}
+                </div>
+                <div>
+                  <label style={lbl}>BIC / SWIFT</label>
+                  <input value={form.bic} onChange={e=>update("bic",e.target.value)} placeholder="BNPAFRPP" style={{...inputS(false,false),fontFamily:"monospace",letterSpacing:".06em"}}/>
+                </div>
+              </div>
+            ) : (
+              <div style={{background:"#fffbeb",borderRadius:14,padding:18,border:"1px solid #fde68a"}}>
+                <p style={{fontSize:13,fontWeight:700,color:"#92400e",marginBottom:14}}>📞 Programmer un rappel téléphonique</p>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+                  <div>
+                    <label style={{...lbl,color:"#78350f"}}>Date du rappel</label>
+                    <input type="date" value={form.rdvDate} onChange={e=>update("rdvDate",e.target.value)} min={new Date().toISOString().split("T")[0]} style={{...inputS(!!errors.rdvDate,false),background:errors.rdvDate?"#fff5f5":"white"}}/>
+                    {errors.rdvDate&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.rdvDate}</p>}
+                  </div>
+                  <div>
+                    <label style={{...lbl,color:"#78350f"}}>Heure</label>
+                    <input type="time" value={form.rdvHeure} onChange={e=>update("rdvHeure",e.target.value)} style={{...inputS(!!errors.rdvHeure,false),background:errors.rdvHeure?"#fff5f5":"white"}}/>
+                    {errors.rdvHeure&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.rdvHeure}</p>}
+                  </div>
+                </div>
+                <div>
+                  <label style={{...lbl,color:"#78350f"}}>Note pour le rappel <span style={{fontWeight:300,opacity:.6}}>(optionnel)</span></label>
+                  <input value={form.rdvNote} onChange={e=>update("rdvNote",e.target.value)} placeholder="Ex : Rappeler en fin de journée, préfère le soir" style={{...inputS(false,false),background:"white"}}/>
+                </div>
+                <div style={{marginTop:12,background:"rgba(251,146,60,.12)",borderRadius:10,padding:"10px 14px"}}>
+                  <p style={{fontSize:11,color:"#92400e",lineHeight:1.6}}>⚠️ Ce dossier sera marqué comme <strong>incomplet</strong> et apparaîtra dans votre liste de rappels sur le tableau de bord.</p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
-        {/* Étape 4 */}
+        {/* Étape 4 — Récap complet */}
         {step===4 && (
           <div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
-              <div style={{background:"#f9fafb",borderRadius:14,padding:18,border:"1px solid #e5e7eb",gridColumn:"1/-1"}}>
-                <p style={{fontSize:11,fontWeight:700,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>Coordonnées</p>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px 24px"}}>
-                  {[["Nom",`${form.prenom} ${form.nom}`],["Email",form.email],["Téléphone",form.telephone],["Ville",`${form.codePostal} ${form.ville}`]].map(([l,v]) => (
-                    <div key={l} style={{padding:"6px 0",borderBottom:"1px solid #f3f4f6"}}><p style={{fontSize:10,color:"#9ca3af",marginBottom:2,fontWeight:700,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:13,color:"#1a1a2e",fontWeight:500}}>{v||"—"}</p></div>
-                  ))}
-                </div>
-              </div>
-              <div style={{background:"#f9fafb",borderRadius:14,padding:18,border:"1px solid #e5e7eb"}}>
-                <p style={{fontSize:11,fontWeight:700,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>Don</p>
-                {[["Montant",form.montantDon?`${parseFloat(form.montantDon).toFixed(2)} €`:"—"],["Coût net",form.montantDon?`${netDon} €`:"—"]].map(([l,v]) => (
-                  <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #f3f4f6"}}><span style={{fontSize:12,color:"#6b7280"}}>{l}</span><span style={{fontSize:12,fontWeight:700,color:"#1a1a2e"}}>{v}</span></div>
-                ))}
-              </div>
-              <div style={{background:"#f9fafb",borderRadius:14,padding:18,border:"1px solid #e5e7eb"}}>
-                <p style={{fontSize:11,fontWeight:700,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>Bancaire</p>
-                {[["IBAN",form.iban],["BIC",form.bic]].map(([l,v]) => (
-                  <div key={l} style={{padding:"5px 0",borderBottom:"1px solid #f3f4f6"}}><p style={{fontSize:10,color:"#9ca3af",marginBottom:2}}>{l}</p><p style={{fontSize:12,color:"#1a1a2e",fontFamily:"monospace"}}>{v||"—"}</p></div>
+            {/* Coordonnées complètes */}
+            <div style={{background:"#f9fafb",borderRadius:14,padding:18,border:"1px solid #e5e7eb",marginBottom:12}}>
+              <p style={{fontSize:11,fontWeight:700,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>👤 Coordonnées civiles</p>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px 24px"}}>
+                {[
+                  ["Nom",form.nom],["Prénom",form.prenom],
+                  ["Date de naissance",form.dateNaissance?new Date(form.dateNaissance+"T00:00").toLocaleDateString("fr-FR",{day:"2-digit",month:"long",year:"numeric"}):"—"],
+                  ["Adresse",form.adresse],
+                  ["Code postal",form.codePostal],["Ville",form.ville],
+                  ["Téléphone",form.telephone],["Email",form.email],
+                ].map(([l,v]) => (
+                  <div key={l} style={{padding:"5px 0",borderBottom:"1px solid #f3f4f6"}}><p style={{fontSize:10,color:"#9ca3af",marginBottom:2,fontWeight:700,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:13,color:"#1a1a2e",fontWeight:500}}>{v||"—"}</p></div>
                 ))}
               </div>
             </div>
+
+            {/* RGPD */}
+            <div style={{background:"#f9fafb",borderRadius:14,padding:18,border:"1px solid #e5e7eb",marginBottom:12}}>
+              <p style={{fontSize:11,fontWeight:700,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>🔒 Consentements RGPD</p>
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                {[["Politique de confidentialité",form.consentRgpd],["Communications marketing",form.consentMarketing]].map(([l,v]) => (
+                  <div key={l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid #f3f4f6"}}>
+                    <span style={{fontSize:12,color:"#4b5563"}}>{l}</span>
+                    <span style={{fontSize:12,fontWeight:700,padding:"2px 10px",borderRadius:20,background:v?"#dcfce7":"#f3f4f6",color:v?"#16a34a":"#9ca3af"}}>{v?"Accepté":"Refusé"}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Don */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+              <div style={{background:"#f9fafb",borderRadius:14,padding:18,border:"1px solid #e5e7eb"}}>
+                <p style={{fontSize:11,fontWeight:700,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>💸 Don mensuel</p>
+                {[
+                  ["Montant",form.montantDon?`${parseFloat(form.montantDon).toFixed(2)} €`:"Non renseigné"],
+                  ["Réduction 66%",form.montantDon?`${defiscalisation} €`:"—"],
+                  ["Coût réel net",form.montantDon?`${netDon} €`:"—"],
+                ].map(([l,v]) => (
+                  <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #f3f4f6"}}><span style={{fontSize:12,color:"#6b7280"}}>{l}</span><span style={{fontSize:12,fontWeight:700,color:"#1a1a2e"}}>{v}</span></div>
+                ))}
+              </div>
+
+              {/* Bancaire ou RDV */}
+              <div style={{background: form.ibanDiffere?"#fffbeb":"#f9fafb",borderRadius:14,padding:18,border:`1px solid ${form.ibanDiffere?"#fde68a":"#e5e7eb"}`}}>
+                {form.ibanDiffere ? (
+                  <>
+                    <p style={{fontSize:11,fontWeight:700,color:"#92400e",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>📅 Rappel programmé</p>
+                    {[
+                      ["Date",form.rdvDate?new Date(form.rdvDate+"T00:00").toLocaleDateString("fr-FR",{day:"2-digit",month:"long",year:"numeric"}):"—"],
+                      ["Heure",form.rdvHeure||"—"],
+                      ["Note",form.rdvNote||"—"],
+                    ].map(([l,v]) => (
+                      <div key={l} style={{padding:"5px 0",borderBottom:"1px solid #fde68a"}}><p style={{fontSize:10,color:"#d97706",marginBottom:2,fontWeight:700,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:12,color:"#78350f",fontWeight:500}}>{v}</p></div>
+                    ))}
+                  </>
+                ) : (
+                  <>
+                    <p style={{fontSize:11,fontWeight:700,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>🏦 Coordonnées bancaires</p>
+                    {[["IBAN",form.iban],["BIC",form.bic]].map(([l,v]) => (
+                      <div key={l} style={{padding:"5px 0",borderBottom:"1px solid #f3f4f6"}}><p style={{fontSize:10,color:"#9ca3af",marginBottom:2,fontWeight:700,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:12,color:"#1a1a2e",fontFamily:"monospace"}}>{v||"—"}</p></div>
+                    ))}
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Signature */}
             <div style={{background:"white",borderRadius:14,padding:20,border:"2px dashed #c4b5fd",marginBottom:16}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-                <p style={{fontSize:14,fontWeight:700,color:"#1a1a2e"}}>Signature</p>
+                <p style={{fontSize:14,fontWeight:700,color:"#1a1a2e"}}>✍️ Signature de l'adhérent</p>
                 <button onClick={clearSignature} style={{fontSize:12,color:"#6d28d9",background:"#f5f3ff",border:"1px solid #ddd6fe",padding:"5px 14px",borderRadius:20,cursor:"pointer",fontFamily:font}}>Effacer</button>
               </div>
               <div style={{background:"#fafaf9",borderRadius:10,border:"1px solid #e5e7eb",position:"relative",touchAction:"none"}}>
@@ -452,12 +580,13 @@
     const [page, setPage]             = useState("dashboard");
     const [stats, setStats]           = useState(null);
     const [statsError, setStatsError] = useState(null);
+    const [rappels, setRappels]       = useState([]);
 
     useEffect(() => { if (currentUser) loadStats(); }, [currentUser]);
 
     async function loadStats() {
       try {
-        const rows = await supabaseFetch("adherents");
+        const rows = await supabaseFetch("adherents", `&collecteur_id=eq.${currentUser.id}`);
         const total = rows.length;
         const ages = rows.map(r => calcAge(r.date_naissance)).filter(a => a!==null && a>0 && a<120);
         const avgAge = ages.length>0 ? ages.reduce((s,a)=>s+a,0)/ages.length : null;
@@ -471,6 +600,9 @@
         const avgDon = dons.length>0 ? dons.reduce((s,d)=>s+d,0)/dons.length : null;
         const perHour = total / 6;
         setStats({ total, avgAge, medianAge, avgDon, perHour });
+        // Dossiers incomplets (rappels à faire)
+        const incomplets = rows.filter(r => r.incomplet === true);
+        setRappels(incomplets);
       } catch(e) { setStatsError(e.message); }
     }
 
@@ -499,7 +631,6 @@
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <span className="badge badge-purple">👤 {currentUser.prenom} {currentUser.nom}</span>
             <a href="register.html" className="btn-ghost">Créer un compte</a>
-            <a href="admin.html" style={{textDecoration:"none",fontSize:13,padding:"8px 14px",borderRadius:10,background:"rgba(124,58,237,.2)",border:"1px solid rgba(124,58,237,.4)",color:"#a78bfa",fontFamily:font,fontWeight:700}}>⚙️ Admin</a>
             <button onClick={handleLogout} style={{fontSize:13,padding:"8px 14px",borderRadius:10,border:"1px solid rgba(239,68,68,.3)",background:"rgba(239,68,68,.08)",color:"#f87171",fontFamily:font,fontWeight:600,cursor:"pointer"}}>Déconnexion</button>
           </div>
         </header>
@@ -514,29 +645,63 @@
                 <p style={{color:"rgba(255,255,255,0.5)",fontSize:15}}>Voici un aperçu de votre activité de collecte.</p>
               </div>
 
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:36}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr",gap:16,marginBottom:36,maxWidth:480}}>
                 <button onClick={()=>setPage("don")} style={{background:"linear-gradient(135deg,#1e1b4b,#4c1d95,#6d28d9)",border:"none",borderRadius:20,padding:"32px 24px",cursor:"pointer",textAlign:"left",color:"white",fontFamily:font,transition:"transform .2s",boxShadow:"0 8px 32px rgba(76,29,149,.35)"}} onMouseEnter={e=>e.currentTarget.style.transform="translateY(-3px)"} onMouseLeave={e=>e.currentTarget.style.transform=""}>
                   <div style={{fontSize:32,marginBottom:14}}>📋</div>
                   <h3 style={{fontSize:18,fontWeight:700,marginBottom:6}}>Nouvelle fiche de don</h3>
                   <p style={{fontSize:13,color:"rgba(255,255,255,0.6)",lineHeight:1.5}}>Enregistrer un nouvel adhérent avec coordonnées, RGPD, don et signature.</p>
                 </button>
-                <a href="admin.html" style={{background:"rgba(124,58,237,.08)",border:"1px solid rgba(124,58,237,.25)",borderRadius:20,padding:"32px 24px",textAlign:"left",color:"white",fontFamily:font,textDecoration:"none",display:"block",transition:"all .2s"}} onMouseEnter={e=>{e.currentTarget.style.background="rgba(124,58,237,.18)";e.currentTarget.style.borderColor="rgba(124,58,237,.5)";}} onMouseLeave={e=>{e.currentTarget.style.background="rgba(124,58,237,.08)";e.currentTarget.style.borderColor="rgba(124,58,237,.25)";}}>
-                  <div style={{fontSize:32,marginBottom:14}}>⚙️</div>
-                  <h3 style={{fontSize:18,fontWeight:700,marginBottom:6}}>Espace Admin</h3>
-                  <p style={{fontSize:13,color:"rgba(255,255,255,0.5)",lineHeight:1.5}}>Statistiques globales, gestion des adhérents et collecteurs.</p>
-                </a>
               </div>
 
               {statsError && <div style={{background:"rgba(239,68,68,.15)",border:"1px solid rgba(239,68,68,.3)",borderRadius:12,padding:"14px 18px",color:"#f87171",fontSize:13,marginBottom:20}}>{statsError}</div>}
               <div>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-                  <h2 style={{fontFamily:serif,fontSize:24,color:"white"}}>Aperçu rapide</h2>
+                  <h2 style={{fontFamily:serif,fontSize:24,color:"white"}}>Mes statistiques</h2>
                   <button onClick={loadStats} style={{fontSize:12,color:"rgba(255,255,255,0.4)",background:"none",border:"none",cursor:"pointer",fontFamily:font}}>🔄 Actualiser</button>
                 </div>
                 <StatsPanel stats={stats}/>
               </div>
+
+              {/* Rappels — dossiers incomplets */}
+              {rappels.length > 0 && (
+                <div style={{marginTop:36}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+                    <h2 style={{fontFamily:serif,fontSize:24,color:"white"}}>📞 Rappels à effectuer <span style={{fontSize:16,fontWeight:400,color:"rgba(251,146,60,.8)",marginLeft:8}}>({rappels.length})</span></h2>
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                    {rappels.map(r => {
+                      const rdvDate = r.rdv_date ? new Date(r.rdv_date) : null;
+                      const isUrgent = rdvDate && rdvDate <= new Date();
+                      return (
+                        <div key={r.id} style={{background:isUrgent?"rgba(239,68,68,.08)":"rgba(251,146,60,.06)",border:`1px solid ${isUrgent?"rgba(239,68,68,.3)":"rgba(251,146,60,.25)"}`,borderRadius:14,padding:"16px 20px",display:"flex",alignItems:"center",gap:16}}>
+                          <div style={{width:40,height:40,borderRadius:12,background:isUrgent?"rgba(239,68,68,.15)":"rgba(251,146,60,.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>
+                            {isUrgent?"🔴":"📅"}
+                          </div>
+                          <div style={{flex:1,minWidth:0}}>
+                            <p style={{fontWeight:700,color:"white",fontSize:14,marginBottom:2}}>{r.prenom} {r.nom}</p>
+                            <p style={{fontSize:12,color:"rgba(255,255,255,0.45)",marginBottom:rdvDate?4:0}}>📞 {r.telephone} &nbsp;·&nbsp; 📧 {r.email}</p>
+                            {rdvDate && <p style={{fontSize:11,color:isUrgent?"#f87171":"rgba(251,146,60,.8)",fontWeight:600}}>
+                              Rappel prévu : {rdvDate.toLocaleDateString("fr-FR",{weekday:"long",day:"2-digit",month:"long"})} à {rdvDate.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}
+                            </p>}
+                            {r.rdv_note && <p style={{fontSize:11,color:"rgba(255,255,255,0.35)",marginTop:2,fontStyle:"italic"}}>"{r.rdv_note}"</p>}
+                          </div>
+                          <div style={{textAlign:"right",flexShrink:0}}>
+                            {r.montant_don && <p style={{fontSize:13,fontWeight:700,color:"#34d399"}}>{parseFloat(r.montant_don).toFixed(2)} €/mois</p>}
+                            <span style={{fontSize:11,padding:"3px 10px",borderRadius:20,background:isUrgent?"rgba(239,68,68,.2)":"rgba(251,146,60,.15)",color:isUrgent?"#f87171":"#fb923c",fontWeight:700}}>
+                              {isUrgent?"En retard":"À venir"}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
+
+          {/* ADMIN FLOATING BUTTON */}
+          <a href="admin.html" title="Espace Admin" style={{position:"fixed",right:0,top:"50%",transform:"translateY(-50%)",writingMode:"vertical-rl",textOrientation:"mixed",background:"rgba(15,14,26,0.85)",border:"1px solid rgba(124,58,237,.25)",borderRight:"none",borderRadius:"10px 0 0 10px",padding:"14px 8px",color:"rgba(255,255,255,0.25)",fontSize:11,fontFamily:font,fontWeight:600,textDecoration:"none",letterSpacing:".1em",backdropFilter:"blur(8px)",transition:"all .2s",zIndex:200}} onMouseEnter={e=>{e.currentTarget.style.color="rgba(167,139,250,0.8)";e.currentTarget.style.borderColor="rgba(124,58,237,.5)";e.currentTarget.style.background="rgba(124,58,237,.12)";}} onMouseLeave={e=>{e.currentTarget.style.color="rgba(255,255,255,0.25)";e.currentTarget.style.borderColor="rgba(124,58,237,.25)";e.currentTarget.style.background="rgba(15,14,26,0.85)";}}>⚙ ADMIN</a>
 
           {page==="don" && (
             <div className="fade-in">
