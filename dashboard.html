@@ -958,51 +958,90 @@
     );
   }
 
-  // ── STATS PANEL ───────────────────────────────────────────────────
+  // ── STATS PANEL (accueil — journée uniquement) ───────────────────
   function StatsPanel({ stats }) {
     if (!stats) return (
       <div style={{textAlign:"center",padding:40,color:"rgba(255,255,255,0.3)",fontSize:14}} className="loading-dot">
         Chargement des statistiques…
       </div>
     );
-    const items = [
-      { label:"Adhérents aujourd'hui", value:stats.today,                                          unit:"",   color:"#a78bfa", icon:"📅" },
-      { label:"Total mission",         value:stats.total,                                          unit:"",   color:"#818cf8", icon:"👥" },
-      { label:"Âge moyen",             value:stats.avgAge!==null?stats.avgAge.toFixed(1):"—",      unit:"ans",color:"#60a5fa", icon:"🎂" },
-      { label:"Don moyen mensuel",     value:stats.avgDon!==null?stats.avgDon.toFixed(2):"—",      unit:"€",  color:"#34d399", icon:"💸" },
-      { label:"Adhérents / heure",     value:stats.perHour.toFixed(2),                             unit:"/ h",color:"#fb923c", icon:"⏱️" },
-    ];
+    const t = stats.todayStats || {};
+    const todayCount = t.total || 0;
+
     return (
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16}} className="stats-grid-3">
-        {items.map(it => (
-          <div key={it.label} className="card fade-in" style={{textAlign:"center"}}>
-            <div style={{fontSize:26,marginBottom:10}}>{it.icon}</div>
-            <div className="stat-value" style={{color:it.color}}>
-              {it.value}<span style={{fontSize:16,fontWeight:300,color:"rgba(255,255,255,0.4)",marginLeft:4}}>{it.unit}</span>
-            </div>
-            <div className="stat-label">{it.label}</div>
+      <div style={{display:"flex",flexDirection:"column",gap:16}}>
+        {/* Bandeau journée */}
+        <div style={{background:"rgba(167,139,250,.08)",border:"1px solid rgba(124,58,237,.25)",borderRadius:16,padding:"14px 20px",display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:18}}>📅</span>
+          <p style={{fontSize:13,color:"rgba(255,255,255,0.6)",lineHeight:1.5}}>
+            Statistiques de <strong style={{color:"white"}}>la journée en cours</strong> — {new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"})}
+          </p>
+        </div>
+
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16}} className="stats-grid-3">
+          {/* Adhérents aujourd'hui */}
+          <div className="card fade-in" style={{textAlign:"center"}}>
+            <div style={{fontSize:26,marginBottom:10}}>📋</div>
+            <div className="stat-value" style={{color:"#a78bfa"}}>{todayCount}</div>
+            <div className="stat-label">Adhérents aujourd'hui</div>
           </div>
-        ))}
-        <div className="card fade-in" style={{gridColumn:"1/-1",background:"rgba(167,139,250,.06)",borderColor:"rgba(124,58,237,.2)"}}>
-          <div style={{display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
-            <div style={{flex:1,minWidth:180}}>
-              <p style={{fontSize:11,fontWeight:700,color:"rgba(167,139,250,.7)",letterSpacing:".08em",textTransform:"uppercase",marginBottom:4}}>Progression journée</p>
-              <p style={{fontSize:13,color:"rgba(255,255,255,0.5)",lineHeight:1.7}}>
-                <strong style={{color:"rgba(255,255,255,0.8)"}}>{stats.today}</strong> adhérent{stats.today>1?"s":""} aujourd'hui / <strong style={{color:"rgba(255,255,255,0.8)"}}>{stats.total}</strong> sur la mission — soit <strong style={{color:"#a78bfa"}}>{stats.perHour.toFixed(2)} adh/h</strong> (base 6h terrain)
-              </p>
+
+          {/* Âge moyen + médian dans la même carte */}
+          <div className="card fade-in" style={{textAlign:"center"}}>
+            <div style={{fontSize:26,marginBottom:10}}>🎂</div>
+            <div className="stat-value" style={{color:"#60a5fa"}}>
+              {t.avgAge!=null?t.avgAge.toFixed(1):"—"}<span style={{fontSize:16,fontWeight:300,color:"rgba(255,255,255,0.4)",marginLeft:4}}>ans</span>
             </div>
-            <div style={{display:"flex",gap:20,flexShrink:0}}>
-              <div style={{textAlign:"center"}}>
-                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:32,fontWeight:700,color:"#a78bfa"}}>{stats.today}</div>
-                <div style={{fontSize:10,color:"rgba(255,255,255,0.35)",fontWeight:700,textTransform:"uppercase"}}>Aujourd'hui</div>
+            <div className="stat-label">Âge moyen</div>
+            <div style={{marginTop:8,paddingTop:8,borderTop:"1px solid rgba(255,255,255,0.06)"}}>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"#818cf8",lineHeight:1}}>
+                {t.medianAge!=null?t.medianAge.toFixed(0):"—"}<span style={{fontSize:13,fontWeight:300,color:"rgba(255,255,255,0.4)",marginLeft:3}}>ans</span>
               </div>
-              <div style={{width:1,background:"rgba(255,255,255,0.08)"}}/>
-              <div style={{textAlign:"center"}}>
-                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:32,fontWeight:700,color:"#818cf8"}}>{stats.total}</div>
-                <div style={{fontSize:10,color:"rgba(255,255,255,0.35)",fontWeight:700,textTransform:"uppercase"}}>Mission totale</div>
-              </div>
+              <div style={{fontSize:10,fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",color:"rgba(255,255,255,0.3)",marginTop:4}}>Âge médian</div>
             </div>
           </div>
+
+          {/* Don moyen */}
+          <div className="card fade-in" style={{textAlign:"center"}}>
+            <div style={{fontSize:26,marginBottom:10}}>💸</div>
+            <div className="stat-value" style={{color:"#34d399"}}>
+              {t.avgDon!=null?t.avgDon.toFixed(2):"—"}<span style={{fontSize:16,fontWeight:300,color:"rgba(255,255,255,0.4)",marginLeft:4}}>€</span>
+            </div>
+            <div className="stat-label">Don moyen mensuel</div>
+          </div>
+
+          {/* Adh/heure journée */}
+          <div className="card fade-in" style={{textAlign:"center"}}>
+            <div style={{fontSize:26,marginBottom:10}}>⏱️</div>
+            <div className="stat-value" style={{color:"#fb923c"}}>
+              {(todayCount/6).toFixed(2)}<span style={{fontSize:16,fontWeight:300,color:"rgba(255,255,255,0.4)",marginLeft:4}}>/ h</span>
+            </div>
+            <div className="stat-label">Adh / heure (aujourd'hui)</div>
+          </div>
+
+          {/* Volume total journée */}
+          <div className="card fade-in" style={{textAlign:"center"}}>
+            <div style={{fontSize:26,marginBottom:10}}>💰</div>
+            <div className="stat-value" style={{color:"#fbbf24"}}>
+              {t.totalDons?t.totalDons.toFixed(2):"0.00"}<span style={{fontSize:16,fontWeight:300,color:"rgba(255,255,255,0.4)",marginLeft:4}}>€</span>
+            </div>
+            <div className="stat-label">Volume journée</div>
+          </div>
+
+          {/* Comparatif mission */}
+          <div className="card fade-in" style={{textAlign:"center",background:"rgba(129,140,248,.06)",borderColor:"rgba(129,140,248,.2)"}}>
+            <div style={{fontSize:26,marginBottom:10}}>👥</div>
+            <div className="stat-value" style={{color:"#818cf8"}}>{stats.total}</div>
+            <div className="stat-label">Total mission</div>
+          </div>
+        </div>
+
+        {/* Note base calcul */}
+        <div className="card" style={{background:"rgba(251,146,60,.08)",borderColor:"rgba(251,146,60,.2)"}}>
+          <p style={{fontSize:11,fontWeight:700,color:"rgba(251,146,60,.7)",letterSpacing:".08em",textTransform:"uppercase",marginBottom:6}}>Base de calcul</p>
+          <p style={{fontSize:13,color:"rgba(255,255,255,0.5)",lineHeight:1.7}}>
+            Le ratio <strong style={{color:"rgba(255,255,255,0.8)"}}>adh / heure</strong> est calculé sur <strong style={{color:"rgba(255,255,255,0.8)"}}>6 heures effectives</strong> de terrain. Aujourd'hui : <strong style={{color:"#fb923c"}}>{(todayCount/6).toFixed(2)} adh/h</strong> — Mission complète : <strong style={{color:"#818cf8"}}>{stats.perHour.toFixed(2)} adh/h</strong>.
+          </p>
         </div>
       </div>
     );
@@ -1033,43 +1072,62 @@
         const rows = await supabaseFetch("adherents", `&collecteur_id=eq.${currentUser.id}`);
         const incomplets = rows.filter(r => r.incomplet === true);
         const adherents  = rows.filter(r => !r.incomplet);
-        const total = adherents.length;
-        // Adhérents aujourd'hui
+
         const todayStr = new Date().toISOString().split("T")[0];
-        const today = adherents.filter(r => r.created_at && r.created_at.startsWith(todayStr)).length;
-        const ages = adherents.map(r => calcAge(r.date_naissance)).filter(a => a!==null && a>0 && a<120);
-        const avgAge = ages.length>0 ? ages.reduce((s,a)=>s+a,0)/ages.length : null;
-        const sorted = [...ages].sort((a,b)=>a-b);
-        const medianAge = sorted.length>0
-          ? (sorted.length%2===0
-              ? (sorted[sorted.length/2-1]+sorted[sorted.length/2])/2
-              : sorted[Math.floor(sorted.length/2)])
-          : null;
-        const dons = adherents.map(r=>parseFloat(r.montant_don)).filter(d=>!isNaN(d)&&d>0);
-        const avgDon = dons.length>0 ? dons.reduce((s,d)=>s+d,0)/dons.length : null;
-        const totalDons = dons.reduce((s,d)=>s+d,0);
-        const perHour = total / 6;
-        // Tranches d'âge pour camembert
-        const ageTranches = [
-          { label:"18–25", min:18, max:25, color:"#a78bfa" },
-          { label:"26–35", min:26, max:35, color:"#60a5fa" },
-          { label:"36–45", min:36, max:45, color:"#34d399" },
-          { label:"46–57", min:46, max:57, color:"#fbbf24" },
-          { label:"58–69", min:58, max:69, color:"#fb923c" },
-          { label:"70–99", min:70, max:99, color:"#f472b6" },
-        ].map(t => ({ ...t, value: ages.filter(a=>a>=t.min&&a<=t.max).length }));
-        // Tranches de dons
-        const donTranches = [
-          { label:"10–15€",  color:"#a78bfa", value: adherents.filter(r=>r.montant_don>=10&&r.montant_don<15).length },
-          { label:"15–20€",  color:"#60a5fa", value: adherents.filter(r=>r.montant_don>=15&&r.montant_don<20).length },
-          { label:"20–25€",  color:"#34d399", value: adherents.filter(r=>r.montant_don>=20&&r.montant_don<25).length },
-          { label:"25–30€",  color:"#fbbf24", value: adherents.filter(r=>r.montant_don>=25&&r.montant_don<30).length },
-          { label:"35–40€",  color:"#fb923c", value: adherents.filter(r=>r.montant_don>=35&&r.montant_don<40).length },
-          { label:"40–45€",  color:"#f472b6", value: adherents.filter(r=>r.montant_don>=40&&r.montant_don<45).length },
-          { label:"45–50€",  color:"#f87171", value: adherents.filter(r=>r.montant_don>=45&&r.montant_don<50).length },
-          { label:"50€+",    color:"#4ade80", value: adherents.filter(r=>r.montant_don>=50).length },
-        ];
-        setStats({ total, today, avgAge, medianAge, avgDon, totalDons, perHour, ageTranches, donTranches });
+        const todayAdh = adherents.filter(r => r.created_at && r.created_at.startsWith(todayStr));
+
+        function computeStats(list) {
+          const total = list.length;
+          const ages = list.map(r => calcAge(r.date_naissance)).filter(a => a!==null && a>0 && a<120);
+          const avgAge = ages.length>0 ? ages.reduce((s,a)=>s+a,0)/ages.length : null;
+          const sorted = [...ages].sort((a,b)=>a-b);
+          const medianAge = sorted.length>0
+            ? (sorted.length%2===0
+                ? (sorted[sorted.length/2-1]+sorted[sorted.length/2])/2
+                : sorted[Math.floor(sorted.length/2)])
+            : null;
+          const dons = list.map(r=>parseFloat(r.montant_don)).filter(d=>!isNaN(d)&&d>0);
+          const avgDon = dons.length>0 ? dons.reduce((s,d)=>s+d,0)/dons.length : null;
+          const totalDons = dons.reduce((s,d)=>s+d,0);
+          const perHour = total / 6;
+          const ageTranches = [
+            { label:"18–25", min:18, max:25, color:"#a78bfa" },
+            { label:"26–35", min:26, max:35, color:"#60a5fa" },
+            { label:"36–45", min:36, max:45, color:"#34d399" },
+            { label:"46–57", min:46, max:57, color:"#fbbf24" },
+            { label:"58–69", min:58, max:69, color:"#fb923c" },
+            { label:"70–99", min:70, max:99, color:"#f472b6" },
+          ].map(t => ({ ...t, value: ages.filter(a=>a>=t.min&&a<=t.max).length }));
+          const donTranches = [
+            { label:"10–15€",  color:"#a78bfa", value: list.filter(r=>r.montant_don>=10&&r.montant_don<15).length },
+            { label:"15–20€",  color:"#60a5fa", value: list.filter(r=>r.montant_don>=15&&r.montant_don<20).length },
+            { label:"20–25€",  color:"#34d399", value: list.filter(r=>r.montant_don>=20&&r.montant_don<25).length },
+            { label:"25–30€",  color:"#fbbf24", value: list.filter(r=>r.montant_don>=25&&r.montant_don<30).length },
+            { label:"30–35€",  color:"#fb923c", value: list.filter(r=>r.montant_don>=30&&r.montant_don<35).length },
+            { label:"35–40€",  color:"#f472b6", value: list.filter(r=>r.montant_don>=35&&r.montant_don<40).length },
+            { label:"40–50€",  color:"#f87171", value: list.filter(r=>r.montant_don>=40&&r.montant_don<50).length },
+            { label:"50€+",    color:"#4ade80", value: list.filter(r=>r.montant_don>=50).length },
+          ];
+          return { total, avgAge, medianAge, avgDon, totalDons, perHour, ageTranches, donTranches };
+        }
+
+        const todaySt = computeStats(todayAdh);
+        const allSt   = computeStats(adherents);
+
+        setStats({
+          today: todaySt.total,
+          todayStats: todaySt,
+          allStats:   allSt,
+          // legacy fields for components that use stats.total etc.
+          total: allSt.total,
+          avgAge: allSt.avgAge,
+          medianAge: allSt.medianAge,
+          avgDon: allSt.avgDon,
+          totalDons: allSt.totalDons,
+          perHour: allSt.perHour,
+          ageTranches: allSt.ageTranches,
+          donTranches: allSt.donTranches,
+        });
         setRappels(incomplets);
       } catch(e) { setStatsError(e.message); }
     }
@@ -1200,24 +1258,72 @@
                 <div style={{textAlign:"center",padding:60,color:"rgba(255,255,255,0.3)"}} className="loading-dot">Chargement…</div>
               ) : (
                 <div>
-                  {/* KPIs principaux */}
+                  {/* Bandeau scope */}
+                  <div style={{background:"rgba(129,140,248,.08)",border:"1px solid rgba(129,140,248,.2)",borderRadius:14,padding:"12px 18px",marginBottom:24,display:"flex",alignItems:"center",gap:10}}>
+                    <span style={{fontSize:16}}>📊</span>
+                    <p style={{fontSize:13,color:"rgba(255,255,255,0.6)"}}>Statistiques <strong style={{color:"white"}}>de toute la mission</strong> — tous les adhérents depuis le début</p>
+                  </div>
+
+                  {/* KPIs mission totale */}
                   <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16,marginBottom:28}} className="kpi-grid">
-                    {[
-                      {icon:"📅",label:"Aujourd'hui",value:stats.today,unit:"",color:"#a78bfa"},
-                      {icon:"👥",label:"Total mission",value:stats.total,unit:"",color:"#818cf8"},
-                      {icon:"💸",label:"Don moyen mensuel",value:stats.avgDon!==null?stats.avgDon.toFixed(2):"—",unit:"€",color:"#34d399"},
-                      {icon:"💰",label:"Volume total mensuel",value:stats.totalDons?stats.totalDons.toFixed(2):"0.00",unit:"€",color:"#60a5fa"},
-                      {icon:"🎂",label:"Âge moyen",value:stats.avgAge!==null?stats.avgAge.toFixed(1):"—",unit:"ans",color:"#fb923c"},
-                      {icon:"⏱️",label:"Adhérents / heure",value:stats.perHour.toFixed(2),unit:"/h",color:"#fbbf24"},
-                    ].map(it => (
-                      <div key={it.label} className="card" style={{textAlign:"center",padding:24}}>
-                        <div style={{fontSize:24,marginBottom:8}}>{it.icon}</div>
-                        <div style={{fontFamily:serif,fontSize:32,fontWeight:700,color:it.color,lineHeight:1}}>
-                          {it.value}<span style={{fontSize:15,fontWeight:300,color:"rgba(255,255,255,0.4)",marginLeft:4}}>{it.unit}</span>
-                        </div>
-                        <div style={{fontSize:11,fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",color:"rgba(255,255,255,0.4)",marginTop:8}}>{it.label}</div>
+                    {/* Adhérents mission */}
+                    <div className="card" style={{textAlign:"center",padding:24}}>
+                      <div style={{fontSize:24,marginBottom:8}}>👥</div>
+                      <div style={{fontFamily:serif,fontSize:32,fontWeight:700,color:"#818cf8",lineHeight:1}}>{stats.allStats.total}</div>
+                      <div style={{fontSize:11,fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",color:"rgba(255,255,255,0.4)",marginTop:8}}>Total mission</div>
+                    </div>
+
+                    {/* Âge moyen + médian empilés */}
+                    <div className="card" style={{textAlign:"center",padding:24}}>
+                      <div style={{fontSize:24,marginBottom:8}}>🎂</div>
+                      <div style={{fontFamily:serif,fontSize:32,fontWeight:700,color:"#fb923c",lineHeight:1}}>
+                        {stats.allStats.avgAge!=null?stats.allStats.avgAge.toFixed(1):"—"}<span style={{fontSize:14,fontWeight:300,color:"rgba(255,255,255,0.4)",marginLeft:3}}>ans</span>
                       </div>
-                    ))}
+                      <div style={{fontSize:11,fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",color:"rgba(255,255,255,0.4)",marginTop:6}}>Âge moyen</div>
+                      {/* Médian en dessous */}
+                      <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid rgba(255,255,255,0.06)"}}>
+                        <div style={{fontFamily:serif,fontSize:24,fontWeight:700,color:"#818cf8",lineHeight:1}}>
+                          {stats.allStats.medianAge!=null?stats.allStats.medianAge.toFixed(0):"—"}<span style={{fontSize:13,fontWeight:300,color:"rgba(255,255,255,0.4)",marginLeft:3}}>ans</span>
+                        </div>
+                        <div style={{fontSize:10,fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",color:"rgba(255,255,255,0.3)",marginTop:4}}>Âge médian</div>
+                      </div>
+                    </div>
+
+                    {/* Don moyen */}
+                    <div className="card" style={{textAlign:"center",padding:24}}>
+                      <div style={{fontSize:24,marginBottom:8}}>💸</div>
+                      <div style={{fontFamily:serif,fontSize:32,fontWeight:700,color:"#34d399",lineHeight:1}}>
+                        {stats.allStats.avgDon!=null?stats.allStats.avgDon.toFixed(2):"—"}<span style={{fontSize:14,fontWeight:300,color:"rgba(255,255,255,0.4)",marginLeft:3}}>€</span>
+                      </div>
+                      <div style={{fontSize:11,fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",color:"rgba(255,255,255,0.4)",marginTop:8}}>Don moyen mensuel</div>
+                    </div>
+
+                    {/* Volume total */}
+                    <div className="card" style={{textAlign:"center",padding:24}}>
+                      <div style={{fontSize:24,marginBottom:8}}>💰</div>
+                      <div style={{fontFamily:serif,fontSize:32,fontWeight:700,color:"#60a5fa",lineHeight:1}}>
+                        {stats.allStats.totalDons?stats.allStats.totalDons.toFixed(2):"0.00"}<span style={{fontSize:14,fontWeight:300,color:"rgba(255,255,255,0.4)",marginLeft:3}}>€</span>
+                      </div>
+                      <div style={{fontSize:11,fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",color:"rgba(255,255,255,0.4)",marginTop:8}}>Volume total mensuel</div>
+                    </div>
+
+                    {/* Adh/h mission */}
+                    <div className="card" style={{textAlign:"center",padding:24}}>
+                      <div style={{fontSize:24,marginBottom:8}}>⏱️</div>
+                      <div style={{fontFamily:serif,fontSize:32,fontWeight:700,color:"#fbbf24",lineHeight:1}}>
+                        {stats.allStats.perHour.toFixed(2)}<span style={{fontSize:14,fontWeight:300,color:"rgba(255,255,255,0.4)",marginLeft:3}}>/h</span>
+                      </div>
+                      <div style={{fontSize:11,fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",color:"rgba(255,255,255,0.4)",marginTop:8}}>Adh / heure (mission)</div>
+                    </div>
+
+                    {/* Adh/h journée */}
+                    <div className="card" style={{textAlign:"center",padding:24,background:"rgba(167,139,250,.06)",borderColor:"rgba(124,58,237,.25)"}}>
+                      <div style={{fontSize:24,marginBottom:8}}>📅</div>
+                      <div style={{fontFamily:serif,fontSize:32,fontWeight:700,color:"#a78bfa",lineHeight:1}}>
+                        {(stats.todayStats.perHour).toFixed(2)}<span style={{fontSize:14,fontWeight:300,color:"rgba(255,255,255,0.4)",marginLeft:3}}>/h</span>
+                      </div>
+                      <div style={{fontSize:11,fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",color:"rgba(255,255,255,0.4)",marginTop:8}}>Adh / heure (aujourd'hui)</div>
+                    </div>
                   </div>
 
                   {/* Progression journée vs mission */}
@@ -1227,42 +1333,48 @@
                       <div style={{flex:1,minWidth:200}}>
                         <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
                           <span style={{fontSize:12,color:"rgba(255,255,255,0.5)"}}>Aujourd'hui</span>
-                          <span style={{fontSize:12,fontWeight:700,color:"#a78bfa"}}>{stats.today} adh.</span>
+                          <span style={{fontSize:12,fontWeight:700,color:"#a78bfa"}}>{stats.todayStats.total} adh.</span>
                         </div>
                         <div style={{background:"rgba(255,255,255,0.06)",borderRadius:8,height:10,overflow:"hidden"}}>
-                          <div style={{height:"100%",background:"#a78bfa",borderRadius:8,width:`${stats.total>0?Math.min(100,(stats.today/stats.total)*100):0}%`,transition:"width .6s"}}/>
+                          <div style={{height:"100%",background:"#a78bfa",borderRadius:8,width:`${stats.allStats.total>0?Math.min(100,(stats.todayStats.total/stats.allStats.total)*100):0}%`,transition:"width .6s"}}/>
                         </div>
                         <div style={{display:"flex",justifyContent:"space-between",marginTop:8}}>
                           <span style={{fontSize:12,color:"rgba(255,255,255,0.5)"}}>Mission totale</span>
-                          <span style={{fontSize:12,fontWeight:700,color:"#818cf8"}}>{stats.total} adh.</span>
+                          <span style={{fontSize:12,fontWeight:700,color:"#818cf8"}}>{stats.allStats.total} adh.</span>
                         </div>
                         <div style={{background:"rgba(255,255,255,0.06)",borderRadius:8,height:10,overflow:"hidden",marginTop:6}}>
                           <div style={{height:"100%",background:"#818cf8",borderRadius:8,width:"100%"}}/>
                         </div>
+                        <div style={{display:"flex",justifyContent:"space-between",marginTop:12,gap:16,flexWrap:"wrap"}}>
+                          <div style={{fontSize:12,color:"rgba(255,255,255,0.45)"}}>⏱️ Journée : <strong style={{color:"#a78bfa"}}>{stats.todayStats.perHour.toFixed(2)} adh/h</strong></div>
+                          <div style={{fontSize:12,color:"rgba(255,255,255,0.45)"}}>⏱️ Mission : <strong style={{color:"#fbbf24"}}>{stats.allStats.perHour.toFixed(2)} adh/h</strong></div>
+                        </div>
                       </div>
                       <div style={{display:"flex",gap:20,flexShrink:0}}>
                         <div style={{textAlign:"center"}}>
-                          <div style={{fontFamily:serif,fontSize:40,fontWeight:700,color:"#a78bfa",lineHeight:1}}>{stats.today}</div>
+                          <div style={{fontFamily:serif,fontSize:40,fontWeight:700,color:"#a78bfa",lineHeight:1}}>{stats.todayStats.total}</div>
                           <div style={{fontSize:10,color:"rgba(255,255,255,0.35)",fontWeight:700,textTransform:"uppercase",marginTop:4}}>Aujourd'hui</div>
                         </div>
                         <div style={{width:1,background:"rgba(255,255,255,0.08)"}}/>
                         <div style={{textAlign:"center"}}>
-                          <div style={{fontFamily:serif,fontSize:40,fontWeight:700,color:"#818cf8",lineHeight:1}}>{stats.total}</div>
+                          <div style={{fontFamily:serif,fontSize:40,fontWeight:700,color:"#818cf8",lineHeight:1}}>{stats.allStats.total}</div>
                           <div style={{fontSize:10,color:"rgba(255,255,255,0.35)",fontWeight:700,textTransform:"uppercase",marginTop:4}}>Mission</div>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Camembert âges + Barres dons */}
+                  {/* Camembert âges + Barres dons — basés sur la mission complète */}
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20,marginBottom:28}} className="stats-grid-2">
                     <div className="card">
-                      <h3 style={{fontFamily:serif,fontSize:20,color:"white",marginBottom:20}}>🎂 Répartition par âge</h3>
-                      {stats.ageTranches && <PieChart data={stats.ageTranches} size={160}/>}
+                      <h3 style={{fontFamily:serif,fontSize:20,color:"white",marginBottom:4}}>🎂 Répartition par âge</h3>
+                      <p style={{fontSize:11,color:"rgba(255,255,255,0.3)",marginBottom:16}}>Mission complète</p>
+                      {stats.allStats.ageTranches && <PieChart data={stats.allStats.ageTranches} size={160}/>}
                     </div>
                     <div className="card">
-                      <h3 style={{fontFamily:serif,fontSize:20,color:"white",marginBottom:20}}>💸 Répartition par don</h3>
-                      {stats.donTranches && <BarChart data={stats.donTranches}/>}
+                      <h3 style={{fontFamily:serif,fontSize:20,color:"white",marginBottom:4}}>💸 Répartition par don</h3>
+                      <p style={{fontSize:11,color:"rgba(255,255,255,0.3)",marginBottom:16}}>Mission complète</p>
+                      {stats.allStats.donTranches && <BarChart data={stats.allStats.donTranches}/>}
                     </div>
                   </div>
 
@@ -1283,7 +1395,9 @@
                   <div className="card" style={{marginTop:16,background:"rgba(251,146,60,.08)",borderColor:"rgba(251,146,60,.2)"}}>
                     <p style={{fontSize:11,fontWeight:700,color:"rgba(251,146,60,.7)",letterSpacing:".08em",textTransform:"uppercase",marginBottom:8}}>Base de calcul</p>
                     <p style={{fontSize:13,color:"rgba(255,255,255,0.5)",lineHeight:1.7}}>
-                      Le ratio <strong style={{color:"rgba(255,255,255,0.8)"}}>adhérents / heure</strong> est calculé sur une journée de terrain de <strong style={{color:"rgba(255,255,255,0.8)"}}>6 heures effectives</strong>. Avec {stats.total} adhérent{stats.total>1?"s":""}, cela représente <strong style={{color:"#fb923c"}}>{stats.perHour.toFixed(2)} adhérent(s)/heure</strong>.
+                      Le ratio <strong style={{color:"rgba(255,255,255,0.8)"}}>adh / heure</strong> est calculé sur <strong style={{color:"rgba(255,255,255,0.8)"}}>6 heures effectives</strong> de terrain.
+                      Mission : <strong style={{color:"#fbbf24"}}>{stats.allStats.perHour.toFixed(2)} adh/h</strong> ({stats.allStats.total} adhérents) —
+                      Aujourd'hui : <strong style={{color:"#a78bfa"}}>{stats.todayStats.perHour.toFixed(2)} adh/h</strong> ({stats.todayStats.total} adhérents).
                     </p>
                   </div>
                 </div>
