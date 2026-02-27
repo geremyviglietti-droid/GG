@@ -25,6 +25,72 @@
     .loading-dot { animation: pulse 1.4s infinite; }
     .badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; }
     .badge-purple { background: rgba(124,58,237,.2); color: #a78bfa; border: 1px solid rgba(124,58,237,.3); }
+
+    /* ── MOBILE NAV BAR ── */
+    .mobile-nav { display: none; position: fixed; bottom: 0; left: 0; right: 0; background: rgba(15,14,26,0.97); border-top: 1px solid rgba(255,255,255,0.08); z-index: 200; padding: 8px 0 env(safe-area-inset-bottom, 8px); backdrop-filter: blur(20px); }
+    .mobile-nav-items { display: flex; justify-content: space-around; align-items: center; }
+    .mobile-nav-btn { background: none; border: none; color: rgba(255,255,255,0.4); cursor: pointer; font-family: 'DM Sans',sans-serif; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 12px; border-radius: 12px; transition: all .2s; min-width: 60px; position: relative; }
+    .mobile-nav-btn.active { color: #a78bfa; background: rgba(124,58,237,.15); }
+    .mobile-nav-btn .nav-icon { font-size: 20px; line-height: 1; }
+    .mobile-nav-btn .nav-label { font-size: 10px; font-weight: 600; letter-spacing: .03em; }
+    .mobile-nav-badge { position: absolute; top: 4px; right: 8px; width: 16px; height: 16px; border-radius: 50%; background: #ef4444; color: white; font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      .mobile-nav { display: block; }
+      .desktop-header-nav { display: none !important; }
+      .desktop-header-right { display: none !important; }
+      header { padding: 0 16px !important; }
+      main { padding: 20px 16px 90px !important; }
+      .dashboard-grid { grid-template-columns: 1fr !important; }
+      .stats-grid-3 { grid-template-columns: 1fr 1fr !important; }
+      .stats-grid-2 { grid-template-columns: 1fr !important; }
+      .kpi-grid { grid-template-columns: 1fr 1fr !important; }
+      .donation-form-wrap { padding: 20px 16px !important; border-radius: 20px !important; }
+      .form-grid-2 { grid-template-columns: 1fr !important; }
+      .form-grid-cp { grid-template-columns: 120px 1fr !important; }
+      .recap-grid-2 { grid-template-columns: 1fr !important; }
+      .recap-cells { grid-template-columns: 1fr !important; }
+      .stat-value { font-size: 28px !important; }
+      .card { padding: 18px !important; border-radius: 16px !important; }
+      .pie-wrap { flex-direction: column !important; align-items: flex-start !important; }
+      h1[data-page-title] { font-size: 28px !important; }
+      .rappel-card { flex-direction: column !important; align-items: flex-start !important; gap: 12px !important; }
+      .rappel-actions { width: 100% !important; flex-direction: row !important; align-items: center !important; justify-content: space-between !important; }
+      .completion-panel-wrap { padding: 20px 16px !important; border-radius: 20px !important; }
+      .step-label { display: none !important; }
+      .login-card { padding: 32px 20px !important; }
+      .admin-btn-side { display: none !important; }
+      .admin-btn-mobile { display: flex !important; }
+    }
+
+    @media (min-width: 769px) {
+      .mobile-header-right { display: none !important; }
+    }
+    @media (max-width: 768px) {
+      .desktop-header-right { display: none !important; }
+    }
+      main { padding: 28px 20px !important; }
+      .stats-grid-3 { grid-template-columns: repeat(2, 1fr) !important; }
+      .kpi-grid { grid-template-columns: repeat(3, 1fr) !important; }
+    }
+
+    .admin-btn-mobile { display: none; align-items: center; gap: 6px; background: rgba(124,58,237,.12); border: 1px solid rgba(124,58,237,.25); border-radius: 8px; padding: 6px 12px; color: rgba(167,139,250,0.7); font-size: 12px; font-family: 'DM Sans',sans-serif; font-weight: 600; text-decoration: none; cursor: pointer; }
+
+    /* Ville suggestions dropdown */
+    .ville-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 2px solid #6d28d9; border-top: none; border-radius: 0 0 12px 12px; z-index: 100; max-height: 200px; overflow-y: auto; box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
+    .ville-dropdown-item { padding: 10px 14px; font-size: 13px; color: #1a1a2e; cursor: pointer; border-bottom: 1px solid #f3f4f6; font-family: 'DM Sans',sans-serif; }
+    .ville-dropdown-item:hover { background: #f5f3ff; color: #4c1d95; }
+    .ville-dropdown-item:last-child { border-bottom: none; }
+
+    /* Bar chart */
+    .bar-chart-wrap { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+    .bar-row { display: flex; align-items: center; gap: 8px; }
+    .bar-label { font-size: 11px; color: rgba(255,255,255,0.5); min-width: 52px; text-align: right; flex-shrink: 0; }
+    .bar-track { flex: 1; background: rgba(255,255,255,0.06); border-radius: 6px; height: 22px; position: relative; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 6px; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; transition: width .6s cubic-bezier(.4,0,.2,1); min-width: 0; }
+    .bar-fill span { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.9); white-space: nowrap; }
+    .bar-count { font-size: 11px; color: rgba(255,255,255,0.35); min-width: 20px; text-align: left; flex-shrink: 0; }
   </style>
 </head>
 <body>
@@ -130,7 +196,7 @@
       return { ...d, x1, y1, x2, y2, large, midAngle, pct: Math.round(d.value / total * 100) };
     }).filter(s => s.value > 0);
     return (
-      <div style={{display:"flex",alignItems:"center",gap:20,flexWrap:"wrap"}}>
+      <div className="pie-wrap" style={{display:"flex",alignItems:"center",gap:20,flexWrap:"wrap"}}>
         <svg width={size} height={size} style={{flexShrink:0}}>
           {slices.map((s, i) => (
             <path key={i}
@@ -141,6 +207,7 @@
               style={{cursor:"pointer",transition:"opacity .2s"}}
               onMouseEnter={() => setHovered(i)}
               onMouseLeave={() => setHovered(null)}
+              onClick={() => setHovered(hovered === i ? null : i)}
             />
           ))}
           {hovered !== null && slices[hovered] && (
@@ -156,13 +223,35 @@
         <div style={{display:"flex",flexDirection:"column",gap:5}}>
           {slices.map((s, i) => (
             <div key={i} style={{display:"flex",alignItems:"center",gap:7,opacity:hovered===null||hovered===i?1:0.4,transition:"opacity .2s",cursor:"pointer"}}
-              onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}>
+              onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)} onClick={() => setHovered(hovered===i?null:i)}>
               <div style={{width:10,height:10,borderRadius:3,background:s.color,flexShrink:0}}/>
               <span style={{fontSize:11,color:"rgba(255,255,255,0.6)"}}>{s.label}</span>
               <span style={{fontSize:11,fontWeight:700,color:"white",marginLeft:"auto",paddingLeft:8}}>{s.value}</span>
             </div>
           ))}
         </div>
+      </div>
+    );
+  }
+
+  // ── BAR CHART ─────────────────────────────────────────────────────
+  function BarChart({ data }) {
+    const max = Math.max(...data.map(d => d.value), 1);
+    const hasData = data.some(d => d.value > 0);
+    if (!hasData) return <div style={{textAlign:"center",color:"rgba(255,255,255,0.3)",fontSize:12,padding:20}}>Pas encore de données</div>;
+    return (
+      <div className="bar-chart-wrap">
+        {data.map((d, i) => (
+          <div key={i} className="bar-row">
+            <span className="bar-label">{d.label}</span>
+            <div className="bar-track">
+              <div className="bar-fill" style={{width:`${(d.value/max)*100}%`, background:d.color, opacity:d.value===0?0.15:1}}>
+                {d.value > 0 && <span>{d.value}</span>}
+              </div>
+            </div>
+            <span className="bar-count">{d.value}</span>
+          </div>
+        ))}
       </div>
     );
   }
@@ -206,7 +295,7 @@
 
     return (
       <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"radial-gradient(ellipse at 60% 30%, rgba(76,29,149,.25), transparent 60%), #0f0e1a",padding:24}}>
-        <div className="fade-in" style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:28,padding:"52px 44px",maxWidth:420,width:"100%"}}>
+        <div className="fade-in login-card" style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:28,padding:"52px 44px",maxWidth:420,width:"100%"}}>
           <div style={{textAlign:"center",marginBottom:36}}>
             <div style={{width:60,height:60,borderRadius:18,background:"linear-gradient(135deg,#4c1d95,#6d28d9)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 20px",fontSize:26}}>🎯</div>
             <h1 style={{fontFamily:serif,fontSize:32,color:"white",fontWeight:600,marginBottom:6}}>Espace Collecteur</h1>
@@ -238,28 +327,63 @@
   // ── DONATION PANEL ────────────────────────────────────────────────
   function DonationPanel({ currentUser, onSuccess }) {
     const [step, setStep]             = useState(0);
-    const [form, setForm]             = useState({ nom:"", prenom:"", dateNaissance:"", adresse:"", codePostal:"", ville:"", telephone:"", email: currentUser?.email||"", consentRgpd:false, consentMarketing:false, montantDon:"", iban:"", bic:"", ibanValid:null, rdvDate:"", rdvHeure:"", rdvNote:"", ibanDiffere:false });
+    const [form, setForm]             = useState({ nom:"", prenom:"", dateNaissance:"", adresse:"", codePostal:"", ville:"", telephone:"", email:"", consentRgpd:false, consentMarketing:false, montantDon:"", iban:"", bic:"", ibanValid:null, rdvDate:"", rdvHeure:"", rdvNote:"", ibanDiffere:false });
     const [errors, setErrors]         = useState({});
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState(null);
     const [done, setDone]             = useState(false);
+    const [villeSuggestions, setVilleSuggestions] = useState([]);
+    const [loadingVille, setLoadingVille] = useState(false);
     const canvasRef = useRef(null);
     const lastPos   = useRef(null);
     const [drawing, setDrawing]       = useState(false);
     const [signature, setSignature]   = useState(null);
+    const cpTimerRef = useRef(null);
 
     const steps = ["Coordonnées","RGPD","Don","IBAN","Récap & Signature"];
     const montant = parseFloat(form.montantDon) || 0;
     const defiscalisation = (montant * 0.66).toFixed(2);
     const netDon = (montant * 0.34).toFixed(2);
 
+    // Auto-lookup city from postal code (French API)
+    async function lookupVille(cp) {
+      if (cp.length < 5) { setVilleSuggestions([]); return; }
+      setLoadingVille(true);
+      try {
+        const res = await fetch(`https://geo.api.gouv.fr/communes?codePostal=${cp}&fields=nom,codesPostaux&limit=8`);
+        const data = await res.json();
+        setVilleSuggestions(data.map(c => c.nom));
+        if (data.length === 1) {
+          setForm(f => ({...f, ville: data[0].nom}));
+          setErrors(e => ({...e, ville: undefined}));
+          setVilleSuggestions([]);
+        }
+      } catch(e) { setVilleSuggestions([]); }
+      setLoadingVille(false);
+    }
+
+    // Format phone: spaces every 2 digits, max 10 digits
+    function formatPhone(raw) {
+      const digits = raw.replace(/\D/g, "").slice(0, 10);
+      return digits.replace(/(\d{2})(?=\d)/g, "$1 ").trim();
+    }
+
     function update(k, v) {
       setForm(f => {
         const n = {...f, [k]:v};
         if (k === "iban") n.ibanValid = isIBANComplete(v) ? validateIBAN(v) : null;
+        if (k === "telephone") n[k] = formatPhone(v);
         return n;
       });
       setErrors(e => ({...e, [k]:undefined}));
+      if (k === "codePostal") {
+        clearTimeout(cpTimerRef.current);
+        if (v.length >= 5) {
+          cpTimerRef.current = setTimeout(() => lookupVille(v), 300);
+        } else {
+          setVilleSuggestions([]);
+        }
+      }
     }
 
     const inputS = (err, ok) => ({ border:`2px solid ${err?"#f87171":ok?"#22c55e":"#e2e8f0"}`, borderRadius:14, padding:"13px 16px", width:"100%", outline:"none", fontSize:14, fontFamily:font, background:err?"#fff5f5":ok?"#f0fdf4":"white", color:"#1a1a2e", boxSizing:"border-box" });
@@ -336,7 +460,7 @@
         setTimeout(() => {
           onSuccess && onSuccess();
           setDone(false); setStep(0);
-          setForm({ nom:"", prenom:"", dateNaissance:"", adresse:"", codePostal:"", ville:"", telephone:"", email: currentUser?.email||"", consentRgpd:false, consentMarketing:false, montantDon:"", iban:"", bic:"", ibanValid:null, rdvDate:"", rdvHeure:"", rdvNote:"", ibanDiffere:false });
+          setForm({ nom:"", prenom:"", dateNaissance:"", adresse:"", codePostal:"", ville:"", telephone:"", email:"", consentRgpd:false, consentMarketing:false, montantDon:"", iban:"", bic:"", ibanValid:null, rdvDate:"", rdvHeure:"", rdvNote:"", ibanDiffere:false });
           setSignature(null);
         }, 2000);
       } catch(e) { setSubmitError("Erreur : " + e.message); }
@@ -358,7 +482,7 @@
           {steps.map((s,i) => (
             <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
               <div style={{width:32,height:32,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,background:i<step?"#22c55e":i===step?"#6d28d9":"#e5e7eb",color:i<=step?"white":"#9ca3af"}}>{i<step?"✓":i+1}</div>
-              <span style={{fontSize:9,color:i===step?"#6d28d9":"#9ca3af",fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",textAlign:"center"}}>{s}</span>
+              <span className="step-label" style={{fontSize:9,color:i===step?"#6d28d9":"#9ca3af",fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",textAlign:"center"}}>{s}</span>
             </div>
           ))}
         </div>
@@ -366,19 +490,45 @@
         {/* Étape 0 */}
         {step===0 && (
           <div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
+            <div className="form-grid-2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
               <div><label style={lbl}>Nom</label><input style={inputS(!!errors.nom)} value={form.nom} onChange={e=>update("nom",e.target.value)} placeholder="MARTIN"/>{errors.nom&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.nom}</p>}</div>
               <div><label style={lbl}>Prénom</label><input style={inputS(!!errors.prenom)} value={form.prenom} onChange={e=>update("prenom",e.target.value)} placeholder="Jean"/>{errors.prenom&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.prenom}</p>}</div>
             </div>
             <div style={{marginBottom:16}}><label style={lbl}>Date de naissance</label><input type="date" style={inputS(!!errors.dateNaissance)} value={form.dateNaissance} onChange={e=>update("dateNaissance",e.target.value)}/>{errors.dateNaissance&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.dateNaissance}</p>}</div>
             <div style={{marginBottom:16}}><label style={lbl}>Adresse</label><input style={inputS(!!errors.adresse)} value={form.adresse} onChange={e=>update("adresse",e.target.value)} placeholder="12 rue de la Paix"/>{errors.adresse&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.adresse}</p>}</div>
-            <div style={{display:"grid",gridTemplateColumns:"160px 1fr",gap:16,marginBottom:16}}>
-              <div><label style={lbl}>Code postal</label><input style={inputS(!!errors.codePostal)} value={form.codePostal} onChange={e=>update("codePostal",e.target.value)} placeholder="75001" maxLength={10}/>{errors.codePostal&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.codePostal}</p>}</div>
-              <div><label style={lbl}>Ville</label><input style={inputS(!!errors.ville)} value={form.ville} onChange={e=>update("ville",e.target.value)} placeholder="Paris"/>{errors.ville&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.ville}</p>}</div>
+            <div className="form-grid-cp" style={{display:"grid",gridTemplateColumns:"160px 1fr",gap:16,marginBottom:16}}>
+              <div>
+                <label style={lbl}>Code postal</label>
+                <input style={inputS(!!errors.codePostal)} value={form.codePostal} onChange={e=>update("codePostal",e.target.value)} placeholder="75001" maxLength={5} inputMode="numeric"/>
+                {loadingVille && <p style={{fontSize:11,color:"#9ca3af",marginTop:4}}>Recherche…</p>}
+                {errors.codePostal&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.codePostal}</p>}
+              </div>
+              <div>
+                <label style={lbl}>Ville</label>
+                <div style={{position:"relative"}}>
+                  <input style={inputS(!!errors.ville)} value={form.ville} onChange={e=>update("ville",e.target.value)} placeholder="Paris"/>
+                  {villeSuggestions.length > 0 && (
+                    <div className="ville-dropdown">
+                      {villeSuggestions.map((v,i) => (
+                        <div key={i} className="ville-dropdown-item" onMouseDown={()=>{ setForm(f=>({...f,ville:v})); setVilleSuggestions([]); setErrors(e=>({...e,ville:undefined})); }}>{v}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {errors.ville&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.ville}</p>}
+              </div>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
-              <div><label style={lbl}>Téléphone</label><input type="tel" style={inputS(!!errors.telephone)} value={form.telephone} onChange={e=>update("telephone",e.target.value)} placeholder="06 12 34 56 78"/>{errors.telephone&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.telephone}</p>}</div>
-              <div><label style={lbl}>Email</label><input type="email" style={inputS(!!errors.email)} value={form.email} onChange={e=>update("email",e.target.value)} placeholder="jean@email.com"/>{errors.email&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.email}</p>}</div>
+            <div className="form-grid-2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+              <div>
+                <label style={lbl}>Téléphone</label>
+                <input type="tel" inputMode="numeric" style={inputS(!!errors.telephone)} value={form.telephone} onChange={e=>update("telephone",e.target.value)} placeholder="06 12 34 56 78"/>
+                {errors.telephone&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.telephone}</p>}
+              </div>
+              <div>
+                <label style={lbl}>Email</label>
+                <input type="email" style={inputS(!!errors.email)} value={form.email} onChange={e=>update("email",e.target.value)} placeholder="jean@email.com" autoComplete="off"/>
+                {errors.email&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.email}</p>}
+              </div>
             </div>
           </div>
         )}
@@ -392,7 +542,7 @@
             </div>
 
             <div style={{background:"#f9fafb",borderRadius:14,padding:"18px 20px",marginBottom:16,border:"1px solid #e5e7eb"}}>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              <div className="form-grid-2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
                 {[
                   {icon:"🎯",title:"Finalité de la collecte",text:"Gestion de votre adhésion, traitement du prélèvement SEPA mensuel et suivi de votre dossier de donateur."},
                   {icon:"⚖️",title:"Base légale",text:"Art. 6.1.b RGPD — Exécution d'un contrat. Le traitement est nécessaire à l'exécution de votre adhésion."},
@@ -435,7 +585,7 @@
               <input type="number" min="1" step="0.01" value={form.montantDon} onChange={e=>update("montantDon",e.target.value)} placeholder="Ex : 20" style={inputS(false)}/>
             </div>
             {montant > 0 && (
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              <div className="form-grid-2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
                 <div style={{background:"#f0fdf4",borderRadius:14,padding:"18px 14px",textAlign:"center",border:"1px solid #bbf7d0"}}>
                   <p style={{fontSize:10,fontWeight:700,color:"#14532d",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>Réduction 66%</p>
                   <p style={{fontSize:24,fontWeight:700,color:"#16a34a"}}>{defiscalisation} €</p>
@@ -490,7 +640,7 @@
             ) : (
               <div style={{background:"#fffbeb",borderRadius:14,padding:18,border:"1px solid #fde68a"}}>
                 <p style={{fontSize:13,fontWeight:700,color:"#92400e",marginBottom:14}}>📞 Programmer un rappel téléphonique</p>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+                <div className="form-grid-2 recap-grid-2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
                   <div>
                     <label style={{...lbl,color:"#78350f"}}>Date du rappel</label>
                     <input type="date" value={form.rdvDate} onChange={e=>update("rdvDate",e.target.value)} min={new Date().toISOString().split("T")[0]} style={{...inputS(!!errors.rdvDate,false),background:errors.rdvDate?"#fff5f5":"white"}}/>
@@ -520,7 +670,7 @@
             {/* Coordonnées complètes */}
             <div style={{background:"#f9fafb",borderRadius:14,padding:18,border:"1px solid #e5e7eb",marginBottom:12}}>
               <p style={{fontSize:11,fontWeight:700,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>👤 Coordonnées civiles</p>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px 24px"}}>
+              <div className="recap-cells" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px 24px"}}>
                 {[
                   ["Nom",form.nom],["Prénom",form.prenom],
                   ["Date de naissance",form.dateNaissance?new Date(form.dateNaissance+"T00:00").toLocaleDateString("fr-FR",{day:"2-digit",month:"long",year:"numeric"}):"—"],
@@ -547,7 +697,7 @@
             </div>
 
             {/* Don */}
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+            <div className="form-grid-2 recap-grid-2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
               <div style={{background:"#f9fafb",borderRadius:14,padding:18,border:"1px solid #e5e7eb"}}>
                 <p style={{fontSize:11,fontWeight:700,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>💸 Don mensuel</p>
                 {[
@@ -761,14 +911,14 @@
       </div>
     );
     const items = [
-      { label:"Adhérents trouvés",  value:stats.total,                                          unit:"",   color:"#a78bfa", icon:"👥" },
-      { label:"Âge moyen",          value:stats.avgAge!==null?stats.avgAge.toFixed(1):"—",      unit:"ans",color:"#60a5fa", icon:"🎂" },
-      { label:"Âge médian",         value:stats.medianAge!==null?stats.medianAge.toFixed(0):"—",unit:"ans",color:"#818cf8", icon:"📊" },
-      { label:"Don moyen mensuel",  value:stats.avgDon!==null?stats.avgDon.toFixed(2):"—",      unit:"€",  color:"#34d399", icon:"💸" },
-      { label:"Adhérents / heure",  value:stats.perHour.toFixed(2),                             unit:"/ h",color:"#fb923c", icon:"⏱️" },
+      { label:"Adhérents aujourd'hui", value:stats.today,                                          unit:"",   color:"#a78bfa", icon:"📅" },
+      { label:"Total mission",         value:stats.total,                                          unit:"",   color:"#818cf8", icon:"👥" },
+      { label:"Âge moyen",             value:stats.avgAge!==null?stats.avgAge.toFixed(1):"—",      unit:"ans",color:"#60a5fa", icon:"🎂" },
+      { label:"Don moyen mensuel",     value:stats.avgDon!==null?stats.avgDon.toFixed(2):"—",      unit:"€",  color:"#34d399", icon:"💸" },
+      { label:"Adhérents / heure",     value:stats.perHour.toFixed(2),                             unit:"/ h",color:"#fb923c", icon:"⏱️" },
     ];
     return (
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16}} className="stats-grid-3">
         {items.map(it => (
           <div key={it.label} className="card fade-in" style={{textAlign:"center"}}>
             <div style={{fontSize:26,marginBottom:10}}>{it.icon}</div>
@@ -778,11 +928,26 @@
             <div className="stat-label">{it.label}</div>
           </div>
         ))}
-        <div className="card fade-in" style={{gridColumn:"1/-1",background:"rgba(251,146,60,.08)",borderColor:"rgba(251,146,60,.2)"}}>
-          <p style={{fontSize:11,fontWeight:700,color:"rgba(251,146,60,.7)",letterSpacing:".08em",textTransform:"uppercase",marginBottom:8}}>Base de calcul</p>
-          <p style={{fontSize:13,color:"rgba(255,255,255,0.5)",lineHeight:1.7}}>
-            Le ratio <strong style={{color:"rgba(255,255,255,0.8)"}}>adhérents / heure</strong> est calculé sur une journée de terrain de <strong style={{color:"rgba(255,255,255,0.8)"}}>6 heures effectives</strong>. Avec {stats.total} adhérent{stats.total>1?"s":""}, cela représente <strong style={{color:"#fb923c"}}>{stats.perHour.toFixed(2)} adhérent(s)/heure</strong>.
-          </p>
+        <div className="card fade-in" style={{gridColumn:"1/-1",background:"rgba(167,139,250,.06)",borderColor:"rgba(124,58,237,.2)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
+            <div style={{flex:1,minWidth:180}}>
+              <p style={{fontSize:11,fontWeight:700,color:"rgba(167,139,250,.7)",letterSpacing:".08em",textTransform:"uppercase",marginBottom:4}}>Progression journée</p>
+              <p style={{fontSize:13,color:"rgba(255,255,255,0.5)",lineHeight:1.7}}>
+                <strong style={{color:"rgba(255,255,255,0.8)"}}>{stats.today}</strong> adhérent{stats.today>1?"s":""} aujourd'hui / <strong style={{color:"rgba(255,255,255,0.8)"}}>{stats.total}</strong> sur la mission — soit <strong style={{color:"#a78bfa"}}>{stats.perHour.toFixed(2)} adh/h</strong> (base 6h terrain)
+              </p>
+            </div>
+            <div style={{display:"flex",gap:20,flexShrink:0}}>
+              <div style={{textAlign:"center"}}>
+                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:32,fontWeight:700,color:"#a78bfa"}}>{stats.today}</div>
+                <div style={{fontSize:10,color:"rgba(255,255,255,0.35)",fontWeight:700,textTransform:"uppercase"}}>Aujourd'hui</div>
+              </div>
+              <div style={{width:1,background:"rgba(255,255,255,0.08)"}}/>
+              <div style={{textAlign:"center"}}>
+                <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:32,fontWeight:700,color:"#818cf8"}}>{stats.total}</div>
+                <div style={{fontSize:10,color:"rgba(255,255,255,0.35)",fontWeight:700,textTransform:"uppercase"}}>Mission totale</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -814,6 +979,9 @@
         const incomplets = rows.filter(r => r.incomplet === true);
         const adherents  = rows.filter(r => !r.incomplet);
         const total = adherents.length;
+        // Adhérents aujourd'hui
+        const todayStr = new Date().toISOString().split("T")[0];
+        const today = adherents.filter(r => r.created_at && r.created_at.startsWith(todayStr)).length;
         const ages = adherents.map(r => calcAge(r.date_naissance)).filter(a => a!==null && a>0 && a<120);
         const avgAge = ages.length>0 ? ages.reduce((s,a)=>s+a,0)/ages.length : null;
         const sorted = [...ages].sort((a,b)=>a-b);
@@ -846,7 +1014,7 @@
           { label:"45–50€",  color:"#f87171", value: adherents.filter(r=>r.montant_don>=45&&r.montant_don<50).length },
           { label:"50€+",    color:"#4ade80", value: adherents.filter(r=>r.montant_don>=50).length },
         ];
-        setStats({ total, avgAge, medianAge, avgDon, totalDons, perHour, ageTranches, donTranches });
+        setStats({ total, today, avgAge, medianAge, avgDon, totalDons, perHour, ageTranches, donTranches });
         setRappels(incomplets);
       } catch(e) { setStatsError(e.message); }
     }
@@ -864,8 +1032,8 @@
         {/* HEADER */}
         <header style={{background:"rgba(255,255,255,0.03)",borderBottom:"1px solid rgba(255,255,255,0.07)",padding:"0 32px",height:64,display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100,backdropFilter:"blur(12px)"}}>
           <div style={{display:"flex",alignItems:"center",gap:28}}>
-            <span style={{fontFamily:serif,fontSize:20,color:"white",fontWeight:600}}>Espace Collecteur</span>
-            <nav style={{display:"flex",gap:4}}>
+            <span style={{fontFamily:serif,fontSize:20,color:"white",fontWeight:600}}>🎯 Collecteur</span>
+            <nav className="desktop-header-nav" style={{display:"flex",gap:4}}>
               {[
                 {key:"dashboard",label:"Accueil",icon:"🏠"},
                 {key:"don",label:"Nouvelle fiche",icon:"📋"},
@@ -879,12 +1047,35 @@
               ))}
             </nav>
           </div>
-          <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <div className="desktop-header-right" style={{display:"flex",alignItems:"center",gap:10}}>
             <span className="badge badge-purple">👤 {currentUser.prenom} {currentUser.nom}</span>
             <a href="register.html" className="btn-ghost">Créer un compte</a>
             <button onClick={handleLogout} style={{fontSize:13,padding:"8px 14px",borderRadius:10,border:"1px solid rgba(239,68,68,.3)",background:"rgba(239,68,68,.08)",color:"#f87171",fontFamily:font,fontWeight:600,cursor:"pointer"}}>Déconnexion</button>
           </div>
+          {/* Mobile header right */}
+          <div style={{display:"flex",alignItems:"center",gap:8}} className="mobile-header-right">
+            <span style={{fontSize:13,color:"rgba(255,255,255,0.5)",fontWeight:600,maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{currentUser.prenom}</span>
+            <button onClick={handleLogout} style={{fontSize:11,padding:"6px 10px",borderRadius:8,border:"1px solid rgba(239,68,68,.3)",background:"rgba(239,68,68,.08)",color:"#f87171",fontFamily:font,fontWeight:600,cursor:"pointer"}}>✕</button>
+          </div>
         </header>
+
+        {/* MOBILE BOTTOM NAV */}
+        <nav className="mobile-nav">
+          <div className="mobile-nav-items">
+            {[
+              {key:"dashboard",label:"Accueil",icon:"🏠"},
+              {key:"don",label:"Fiche",icon:"📋"},
+              {key:"stats",label:"Stats",icon:"📊"},
+              {key:"rappels",label:"Rappels",icon:"📞",badge:rappels.length},
+            ].map(n => (
+              <button key={n.key} onClick={()=>{setPage(n.key);setRappelSelected(null);}} className={`mobile-nav-btn${page===n.key?" active":""}`}>
+                {n.badge > 0 && <span className="mobile-nav-badge">{n.badge}</span>}
+                <span className="nav-icon">{n.icon}</span>
+                <span className="nav-label">{n.label}</span>
+              </button>
+            ))}
+          </div>
+        </nav>
 
         {/* MAIN */}
         <main style={{flex:1,maxWidth:1100,margin:"0 auto",width:"100%",padding:"36px 24px"}}>
@@ -896,7 +1087,7 @@
                 <p style={{color:"rgba(255,255,255,0.5)",fontSize:15}}>Voici un aperçu de votre activité de collecte.</p>
               </div>
 
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:36,maxWidth:760}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:36,maxWidth:760}} className="dashboard-grid">
                 <button onClick={()=>setPage("don")} style={{background:"linear-gradient(135deg,#1e1b4b,#4c1d95,#6d28d9)",border:"none",borderRadius:20,padding:"32px 24px",cursor:"pointer",textAlign:"left",color:"white",fontFamily:font,transition:"transform .2s",boxShadow:"0 8px 32px rgba(76,29,149,.35)"}} onMouseEnter={e=>e.currentTarget.style.transform="translateY(-3px)"} onMouseLeave={e=>e.currentTarget.style.transform=""}>
                   <div style={{fontSize:32,marginBottom:14}}>📋</div>
                   <h3 style={{fontSize:18,fontWeight:700,marginBottom:6}}>Nouvelle fiche de don</h3>
@@ -940,7 +1131,7 @@
           )}
 
           {/* ADMIN FLOATING BUTTON */}
-          <a href="admin.html" title="Espace Admin" style={{position:"fixed",right:0,top:"50%",transform:"translateY(-50%)",writingMode:"vertical-rl",textOrientation:"mixed",background:"rgba(15,14,26,0.85)",border:"1px solid rgba(124,58,237,.25)",borderRight:"none",borderRadius:"10px 0 0 10px",padding:"14px 8px",color:"rgba(255,255,255,0.25)",fontSize:11,fontFamily:font,fontWeight:600,textDecoration:"none",letterSpacing:".1em",backdropFilter:"blur(8px)",transition:"all .2s",zIndex:200}} onMouseEnter={e=>{e.currentTarget.style.color="rgba(167,139,250,0.8)";e.currentTarget.style.borderColor="rgba(124,58,237,.5)";e.currentTarget.style.background="rgba(124,58,237,.12)";}} onMouseLeave={e=>{e.currentTarget.style.color="rgba(255,255,255,0.25)";e.currentTarget.style.borderColor="rgba(124,58,237,.25)";e.currentTarget.style.background="rgba(15,14,26,0.85)";}}>⚙ ADMIN</a>
+          <a href="admin.html" title="Espace Admin" className="admin-btn-side" style={{position:"fixed",right:0,top:"50%",transform:"translateY(-50%)",writingMode:"vertical-rl",textOrientation:"mixed",background:"rgba(15,14,26,0.85)",border:"1px solid rgba(124,58,237,.25)",borderRight:"none",borderRadius:"10px 0 0 10px",padding:"14px 8px",color:"rgba(255,255,255,0.25)",fontSize:11,fontFamily:font,fontWeight:600,textDecoration:"none",letterSpacing:".1em",backdropFilter:"blur(8px)",transition:"all .2s",zIndex:200}} onMouseEnter={e=>{e.currentTarget.style.color="rgba(167,139,250,0.8)";e.currentTarget.style.borderColor="rgba(124,58,237,.5)";e.currentTarget.style.background="rgba(124,58,237,.12)";}} onMouseLeave={e=>{e.currentTarget.style.color="rgba(255,255,255,0.25)";e.currentTarget.style.borderColor="rgba(124,58,237,.25)";e.currentTarget.style.background="rgba(15,14,26,0.85)";}}>⚙ ADMIN</a>
 
           {page==="stats" && (
             <div className="fade-in">
@@ -955,13 +1146,13 @@
               ) : (
                 <div>
                   {/* KPIs principaux */}
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16,marginBottom:28}}>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16,marginBottom:28}} className="kpi-grid">
                     {[
-                      {icon:"👥",label:"Adhérents actifs",value:stats.total,unit:"",color:"#a78bfa"},
+                      {icon:"📅",label:"Aujourd'hui",value:stats.today,unit:"",color:"#a78bfa"},
+                      {icon:"👥",label:"Total mission",value:stats.total,unit:"",color:"#818cf8"},
                       {icon:"💸",label:"Don moyen mensuel",value:stats.avgDon!==null?stats.avgDon.toFixed(2):"—",unit:"€",color:"#34d399"},
                       {icon:"💰",label:"Volume total mensuel",value:stats.totalDons?stats.totalDons.toFixed(2):"0.00",unit:"€",color:"#60a5fa"},
                       {icon:"🎂",label:"Âge moyen",value:stats.avgAge!==null?stats.avgAge.toFixed(1):"—",unit:"ans",color:"#fb923c"},
-                      {icon:"📊",label:"Âge médian",value:stats.medianAge!==null?stats.medianAge.toFixed(0):"—",unit:"ans",color:"#818cf8"},
                       {icon:"⏱️",label:"Adhérents / heure",value:stats.perHour.toFixed(2),unit:"/h",color:"#fbbf24"},
                     ].map(it => (
                       <div key={it.label} className="card" style={{textAlign:"center",padding:24}}>
@@ -974,15 +1165,49 @@
                     ))}
                   </div>
 
-                  {/* Camemberts côte à côte */}
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20,marginBottom:28}}>
+                  {/* Progression journée vs mission */}
+                  <div className="card" style={{marginBottom:28,background:"rgba(167,139,250,.06)",borderColor:"rgba(124,58,237,.2)"}}>
+                    <h3 style={{fontFamily:serif,fontSize:18,color:"white",marginBottom:16}}>📅 Journée en cours vs Mission totale</h3>
+                    <div style={{display:"flex",gap:24,alignItems:"center",flexWrap:"wrap"}}>
+                      <div style={{flex:1,minWidth:200}}>
+                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                          <span style={{fontSize:12,color:"rgba(255,255,255,0.5)"}}>Aujourd'hui</span>
+                          <span style={{fontSize:12,fontWeight:700,color:"#a78bfa"}}>{stats.today} adh.</span>
+                        </div>
+                        <div style={{background:"rgba(255,255,255,0.06)",borderRadius:8,height:10,overflow:"hidden"}}>
+                          <div style={{height:"100%",background:"#a78bfa",borderRadius:8,width:`${stats.total>0?Math.min(100,(stats.today/stats.total)*100):0}%`,transition:"width .6s"}}/>
+                        </div>
+                        <div style={{display:"flex",justifyContent:"space-between",marginTop:8}}>
+                          <span style={{fontSize:12,color:"rgba(255,255,255,0.5)"}}>Mission totale</span>
+                          <span style={{fontSize:12,fontWeight:700,color:"#818cf8"}}>{stats.total} adh.</span>
+                        </div>
+                        <div style={{background:"rgba(255,255,255,0.06)",borderRadius:8,height:10,overflow:"hidden",marginTop:6}}>
+                          <div style={{height:"100%",background:"#818cf8",borderRadius:8,width:"100%"}}/>
+                        </div>
+                      </div>
+                      <div style={{display:"flex",gap:20,flexShrink:0}}>
+                        <div style={{textAlign:"center"}}>
+                          <div style={{fontFamily:serif,fontSize:40,fontWeight:700,color:"#a78bfa",lineHeight:1}}>{stats.today}</div>
+                          <div style={{fontSize:10,color:"rgba(255,255,255,0.35)",fontWeight:700,textTransform:"uppercase",marginTop:4}}>Aujourd'hui</div>
+                        </div>
+                        <div style={{width:1,background:"rgba(255,255,255,0.08)"}}/>
+                        <div style={{textAlign:"center"}}>
+                          <div style={{fontFamily:serif,fontSize:40,fontWeight:700,color:"#818cf8",lineHeight:1}}>{stats.total}</div>
+                          <div style={{fontSize:10,color:"rgba(255,255,255,0.35)",fontWeight:700,textTransform:"uppercase",marginTop:4}}>Mission</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Camembert âges + Barres dons */}
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20,marginBottom:28}} className="stats-grid-2">
                     <div className="card">
                       <h3 style={{fontFamily:serif,fontSize:20,color:"white",marginBottom:20}}>🎂 Répartition par âge</h3>
-                      {stats.ageTranches && <PieChart data={stats.ageTranches} size={180}/>}
+                      {stats.ageTranches && <PieChart data={stats.ageTranches} size={160}/>}
                     </div>
                     <div className="card">
                       <h3 style={{fontFamily:serif,fontSize:20,color:"white",marginBottom:20}}>💸 Répartition par don</h3>
-                      {stats.donTranches && <PieChart data={stats.donTranches} size={180}/>}
+                      {stats.donTranches && <BarChart data={stats.donTranches}/>}
                     </div>
                   </div>
 
@@ -1018,7 +1243,7 @@
                 <h1 style={{fontFamily:serif,fontSize:36,color:"white",fontWeight:600,marginBottom:6}}>Nouvelle fiche de don</h1>
                 <p style={{color:"rgba(255,255,255,0.5)",fontSize:14}}>Remplissez chaque étape pour enregistrer l'adhérent</p>
               </div>
-              <div style={{background:"#fafaf9",borderRadius:24,padding:"36px 40px",maxWidth:720,boxShadow:"0 24px 64px rgba(0,0,0,0.3)"}}>
+              <div className="donation-form-wrap" style={{background:"#fafaf9",borderRadius:24,padding:"36px 40px",maxWidth:720,boxShadow:"0 24px 64px rgba(0,0,0,0.3)"}}>
                 <DonationPanel currentUser={currentUser} onSuccess={()=>{ loadStats(); setPage("dashboard"); }}/>
               </div>
             </div>
@@ -1034,7 +1259,7 @@
                     <h1 style={{fontFamily:serif,fontSize:36,color:"white",fontWeight:600,marginBottom:6}}>Finaliser le dossier</h1>
                     <p style={{color:"rgba(255,255,255,0.5)",fontSize:14}}>Complétez le RIB manquant pour valider l'adhésion de {rappelSelected.prenom} {rappelSelected.nom}</p>
                   </div>
-                  <div style={{background:"#fafaf9",borderRadius:24,padding:"36px 40px",maxWidth:720,boxShadow:"0 24px 64px rgba(0,0,0,0.3)"}}>
+                  <div className="completion-panel-wrap" style={{background:"#fafaf9",borderRadius:24,padding:"36px 40px",maxWidth:720,boxShadow:"0 24px 64px rgba(0,0,0,0.3)"}}>
                     <CompletionPanel
                       adherent={rappelSelected}
                       onSuccess={()=>{ loadStats(); setRappelSelected(null); }}
@@ -1078,7 +1303,7 @@
                           const rdvDate = r.rdv_date ? new Date(r.rdv_date) : null;
                           const isUrgent = rdvDate && rdvDate <= new Date();
                           return (
-                            <div key={r.id} style={{background:isUrgent?"rgba(239,68,68,.06)":"rgba(255,255,255,0.03)",border:`1px solid ${isUrgent?"rgba(239,68,68,.25)":"rgba(251,146,60,.2)"}`,borderRadius:16,padding:"20px 24px",display:"flex",alignItems:"center",gap:16,transition:"border-color .2s"}}>
+                            <div key={r.id} className="rappel-card" style={{background:isUrgent?"rgba(239,68,68,.06)":"rgba(255,255,255,0.03)",border:`1px solid ${isUrgent?"rgba(239,68,68,.25)":"rgba(251,146,60,.2)"}`,borderRadius:16,padding:"20px 24px",display:"flex",alignItems:"center",gap:16,transition:"border-color .2s"}}>
                               {/* Indicateur urgence */}
                               <div style={{width:44,height:44,borderRadius:12,background:isUrgent?"rgba(239,68,68,.15)":"rgba(251,146,60,.1)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>
                                 {isUrgent ? "🔴" : "📅"}
@@ -1103,7 +1328,7 @@
                               </div>
 
                               {/* Don + actions */}
-                              <div style={{textAlign:"right",flexShrink:0,display:"flex",flexDirection:"column",alignItems:"flex-end",gap:8}}>
+                              <div className="rappel-actions" style={{textAlign:"right",flexShrink:0,display:"flex",flexDirection:"column",alignItems:"flex-end",gap:8}}>
                                 {r.montant_don && (
                                   <p style={{fontSize:16,fontWeight:700,color:"#34d399"}}>{parseFloat(r.montant_don).toFixed(2)} €<span style={{fontSize:11,color:"rgba(255,255,255,0.35)",fontWeight:400}}>/mois</span></p>
                                 )}
