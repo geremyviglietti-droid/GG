@@ -327,7 +327,7 @@
   // ── DONATION PANEL ────────────────────────────────────────────────
   function DonationPanel({ currentUser, onSuccess }) {
     const [step, setStep]             = useState(0);
-    const [form, setForm]             = useState({ nom:"", prenom:"", dateNaissance:"", adresse:"", codePostal:"", ville:"", telephone:"", email:"", consentRgpd:false, consentMarketing:false, montantDon:"", iban:"", bic:"", ibanValid:null, rdvDate:"", rdvHeure:"", rdvNote:"", ibanDiffere:false });
+    const [form, setForm]             = useState({ nom:"", prenom:"", sexe:"", dateNaissance:"", adresse:"", codePostal:"", ville:"", telephone:"", email:"", consentRgpd:false, consentMarketing:false, montantDon:"", iban:"", bic:"", ibanValid:null, rdvDate:"", rdvHeure:"", rdvNote:"", ibanDiffere:false });
     const [errors, setErrors]         = useState({});
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState(null);
@@ -466,7 +466,7 @@
       setSubmitting(true); setSubmitError(null);
       try {
         await supabaseInsert("adherents", {
-          nom: form.nom, prenom: form.prenom, date_naissance: form.dateNaissance,
+          nom: form.nom, prenom: form.prenom, sexe: form.sexe || null, date_naissance: form.dateNaissance,
           adresse: form.adresse, code_postal: form.codePostal, ville: form.ville,
           telephone: form.telephone, email: form.email,
           consent_rgpd: form.consentRgpd, consent_marketing: form.consentMarketing,
@@ -485,7 +485,7 @@
         setTimeout(() => {
           onSuccess && onSuccess();
           setDone(false); setStep(0);
-          setForm({ nom:"", prenom:"", dateNaissance:"", adresse:"", codePostal:"", ville:"", telephone:"", email:"", consentRgpd:false, consentMarketing:false, montantDon:"", iban:"", bic:"", ibanValid:null, rdvDate:"", rdvHeure:"", rdvNote:"", ibanDiffere:false });
+          setForm({ nom:"", prenom:"", sexe:"", dateNaissance:"", adresse:"", codePostal:"", ville:"", telephone:"", email:"", consentRgpd:false, consentMarketing:false, montantDon:"", iban:"", bic:"", ibanValid:null, rdvDate:"", rdvHeure:"", rdvNote:"", ibanDiffere:false });
           setSignature(null);
         }, 2000);
       } catch(e) { setSubmitError("Erreur : " + e.message); }
@@ -519,6 +519,32 @@
               <div><label style={lbl}>Nom</label><input style={inputS(!!errors.nom)} value={form.nom} onChange={e=>update("nom",e.target.value)} placeholder="MARTIN"/>{errors.nom&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.nom}</p>}</div>
               <div><label style={lbl}>Prénom</label><input style={inputS(!!errors.prenom)} value={form.prenom} onChange={e=>update("prenom",e.target.value)} placeholder="Jean"/>{errors.prenom&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.prenom}</p>}</div>
             </div>
+
+            {/* Sélecteur genre */}
+            <div style={{marginBottom:16}}>
+              <label style={lbl}>Genre <span style={{fontWeight:300,opacity:.5}}>(optionnel)</span></label>
+              <div style={{display:"flex",gap:10}}>
+                {[
+                  {val:"M", label:"♂ Masculin",  bg:"#eff6ff", border:"#3b82f6", text:"#1d4ed8", activeBg:"#dbeafe"},
+                  {val:"F", label:"♀ Féminin",   bg:"#fdf2f8", border:"#ec4899", text:"#be185d", activeBg:"#fce7f3"},
+                  {val:"A", label:"⚧ Autre",      bg:"#f9fafb", border:"#9ca3af", text:"#6b7280", activeBg:"#f3f4f6"},
+                ].map(opt => (
+                  <div
+                    key={opt.val}
+                    onClick={()=>update("sexe", form.sexe===opt.val ? "" : opt.val)}
+                    style={{
+                      flex:1, padding:"10px 8px", borderRadius:12, cursor:"pointer", textAlign:"center",
+                      border:`2px solid ${form.sexe===opt.val ? opt.border : "#e5e7eb"}`,
+                      background: form.sexe===opt.val ? opt.activeBg : "white",
+                      transition:"all .15s"
+                    }}
+                  >
+                    <p style={{fontSize:13,fontWeight:700,color:form.sexe===opt.val?opt.text:"#6b7280"}}>{opt.label}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div style={{marginBottom:16}}><label style={lbl}>Date de naissance</label><input type="date" style={inputS(!!errors.dateNaissance)} value={form.dateNaissance} onChange={e=>update("dateNaissance",e.target.value)}/>{errors.dateNaissance&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.dateNaissance}</p>}</div>
             <div style={{marginBottom:16}}><label style={lbl}>Adresse</label><input style={inputS(!!errors.adresse)} value={form.adresse} onChange={e=>update("adresse",e.target.value)} placeholder="12 rue de la Paix"/>{errors.adresse&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.adresse}</p>}</div>
             <div className="form-grid-cp" style={{display:"grid",gridTemplateColumns:"160px 1fr",gap:16,marginBottom:16}}>
@@ -710,6 +736,7 @@
               <div className="recap-cells" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px 24px"}}>
                 {[
                   ["Nom",form.nom],["Prénom",form.prenom],
+                  ["Genre", form.sexe==="M"?"♂ Masculin":form.sexe==="F"?"♀ Féminin":form.sexe==="A"?"⚧ Autre":"—"],
                   ["Date de naissance",form.dateNaissance?new Date(form.dateNaissance+"T00:00").toLocaleDateString("fr-FR",{day:"2-digit",month:"long",year:"numeric"}):"—"],
                   ["Adresse",form.adresse],
                   ["Code postal",form.codePostal],["Ville",form.ville],
@@ -958,6 +985,43 @@
     );
   }
 
+  // ── GENDER BAR ────────────────────────────────────────────────────
+  function GenderBar({ sexeStats, total, compact = false }) {
+    if (!sexeStats || total === 0) return null;
+    const { H, F, A, NR } = sexeStats;
+    const pct = n => total > 0 ? Math.round(n / total * 100) : 0;
+    const segments = [
+      { key:"H", label:"♂ Hommes",  n:H, color:"#3b82f6", light:"rgba(59,130,246,.15)" },
+      { key:"F", label:"♀ Femmes",  n:F, color:"#ec4899", light:"rgba(236,72,153,.15)" },
+      { key:"A", label:"⚧ Autre",   n:A, color:"#8b5cf6", light:"rgba(139,92,246,.15)" },
+      { key:"NR",label:"— N/R",     n:NR,color:"#6b7280", light:"rgba(107,114,128,.1)" },
+    ].filter(s => s.n > 0);
+
+    return (
+      <div>
+        {/* Barre empilée */}
+        <div style={{display:"flex",borderRadius:8,overflow:"hidden",height:compact?18:28,marginBottom:compact?8:12,gap:1}}>
+          {segments.map(s => (
+            <div key={s.key} style={{width:`${pct(s.n)}%`,background:s.color,minWidth:s.n>0?4:0,transition:"width .6s",display:"flex",alignItems:"center",justifyContent:"center"}}>
+              {!compact && pct(s.n) >= 12 && <span style={{fontSize:10,fontWeight:700,color:"white"}}>{pct(s.n)}%</span>}
+            </div>
+          ))}
+        </div>
+        {/* Légende */}
+        <div style={{display:"flex",gap:compact?8:14,flexWrap:"wrap"}}>
+          {segments.map(s => (
+            <div key={s.key} style={{display:"flex",alignItems:"center",gap:5,background:s.light,padding:compact?"3px 8px":"4px 10px",borderRadius:20,border:`1px solid ${s.color}30`}}>
+              <div style={{width:8,height:8,borderRadius:"50%",background:s.color,flexShrink:0}}/>
+              <span style={{fontSize:compact?10:12,color:"rgba(255,255,255,0.7)",fontWeight:600}}>{s.label}</span>
+              <span style={{fontSize:compact?10:12,fontWeight:700,color:"white"}}>{s.n}</span>
+              <span style={{fontSize:compact?9:11,color:"rgba(255,255,255,0.4)"}}>({pct(s.n)}%)</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   // ── STATS PANEL (accueil — journée uniquement) ───────────────────
   function StatsPanel({ stats }) {
     if (!stats) return (
@@ -1043,11 +1107,17 @@
             Le ratio <strong style={{color:"rgba(255,255,255,0.8)"}}>adh / heure</strong> est calculé sur <strong style={{color:"rgba(255,255,255,0.8)"}}>6 heures effectives</strong> de terrain. Aujourd'hui : <strong style={{color:"#fb923c"}}>{(todayCount/6).toFixed(2)} adh/h</strong> — Mission complète : <strong style={{color:"#818cf8"}}>{stats.perHour.toFixed(2)} adh/h</strong>.
           </p>
         </div>
+
+        {/* Genre journée */}
+        {t.sexeStats && t.total > 0 && (
+          <div className="card" style={{background:"rgba(255,255,255,0.03)"}}>
+            <p style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.4)",letterSpacing:".08em",textTransform:"uppercase",marginBottom:12}}>⚥ Répartition H/F — aujourd'hui</p>
+            <GenderBar sexeStats={t.sexeStats} total={t.total} compact={false}/>
+          </div>
+        )}
       </div>
     );
   }
-
-  // ── APP ───────────────────────────────────────────────────────────
   function App() {
     const [currentUser, setCurrentUser] = useState(() => {
       try { return JSON.parse(sessionStorage.getItem("collecteur")); } catch { return null; }
@@ -1108,7 +1178,12 @@
             { label:"40–50€",  color:"#f87171", value: list.filter(r=>r.montant_don>=40&&r.montant_don<50).length },
             { label:"50€+",    color:"#4ade80", value: list.filter(r=>r.montant_don>=50).length },
           ];
-          return { total, avgAge, medianAge, avgDon, totalDons, perHour, ageTranches, donTranches };
+          const nbH = list.filter(r=>r.sexe==="M").length;
+          const nbF = list.filter(r=>r.sexe==="F").length;
+          const nbA = list.filter(r=>r.sexe==="A").length;
+          const nbNR = total - nbH - nbF - nbA;
+          const sexeStats = { H:nbH, F:nbF, A:nbA, NR:nbNR };
+          return { total, avgAge, medianAge, avgDon, totalDons, perHour, ageTranches, donTranches, sexeStats };
         }
 
         const todaySt = computeStats(todayAdh);
@@ -1376,6 +1451,26 @@
                       <p style={{fontSize:11,color:"rgba(255,255,255,0.3)",marginBottom:16}}>Mission complète</p>
                       {stats.allStats.donTranches && <BarChart data={stats.allStats.donTranches}/>}
                     </div>
+                  </div>
+
+                  {/* Répartition genre — mission */}
+                  <div className="card" style={{marginBottom:28}}>
+                    <h3 style={{fontFamily:serif,fontSize:20,color:"white",marginBottom:4}}>⚥ Répartition Homme / Femme</h3>
+                    <p style={{fontSize:11,color:"rgba(255,255,255,0.3)",marginBottom:16}}>Mission complète</p>
+                    {stats.allStats.sexeStats && stats.allStats.total > 0 ? (
+                      <div>
+                        <GenderBar sexeStats={stats.allStats.sexeStats} total={stats.allStats.total} compact={false}/>
+                        {/* Comparatif journée si données dispo */}
+                        {stats.todayStats.total > 0 && stats.todayStats.sexeStats && (
+                          <div style={{marginTop:16,paddingTop:16,borderTop:"1px solid rgba(255,255,255,0.06)"}}>
+                            <p style={{fontSize:11,fontWeight:700,color:"rgba(167,139,250,.6)",textTransform:"uppercase",letterSpacing:".08em",marginBottom:10}}>Aujourd'hui</p>
+                            <GenderBar sexeStats={stats.todayStats.sexeStats} total={stats.todayStats.total} compact={true}/>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p style={{fontSize:13,color:"rgba(255,255,255,0.3)",fontStyle:"italic"}}>Aucune donnée de genre disponible — renseignez le genre lors des prochaines saisies.</p>
+                    )}
                   </div>
 
                   {/* Rappels en attente */}
