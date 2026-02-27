@@ -362,16 +362,24 @@
       setLoadingVille(false);
     }
 
-    // Format phone: spaces every 2 digits, max 10 digits
     function formatPhone(raw) {
       const digits = raw.replace(/\D/g, "").slice(0, 10);
       return digits.replace(/(\d{2})(?=\d)/g, "$1 ").trim();
     }
 
+    // Format IBAN: groups of 4 chars
+    function formatIBAN(raw) {
+      const clean = raw.replace(/\s/g, "").toUpperCase();
+      return clean.replace(/(.{4})(?=.)/g, "$1 ").trim();
+    }
+
     function update(k, v) {
       setForm(f => {
         const n = {...f, [k]:v};
-        if (k === "iban") n.ibanValid = isIBANComplete(v) ? validateIBAN(v) : null;
+        if (k === "iban") {
+          n[k] = formatIBAN(v);
+          n.ibanValid = isIBANComplete(n[k]) ? validateIBAN(n[k]) : null;
+        }
         if (k === "telephone") n[k] = formatPhone(v);
         return n;
       });
@@ -399,12 +407,24 @@
       if (!drawing) return; e.preventDefault();
       const ctx = canvasRef.current.getContext("2d");
       const p = posFromEvent(e, canvasRef.current);
-      ctx.beginPath(); ctx.strokeStyle="#1a1a2e"; ctx.lineWidth=2.5; ctx.lineCap="round";
+      ctx.beginPath(); ctx.strokeStyle="#1a1a2e"; ctx.lineWidth=2.5; ctx.lineCap="round"; ctx.lineJoin="round";
       ctx.moveTo(lastPos.current.x, lastPos.current.y); ctx.lineTo(p.x, p.y); ctx.stroke();
       lastPos.current = p;
     }
     function endDraw(e) { e.preventDefault(); setDrawing(false); setSignature(canvasRef.current.toDataURL()); }
-    function clearSignature() { canvasRef.current.getContext("2d").clearRect(0,0,700,200); setSignature(null); }
+    function clearSignature() {
+      const ctx = canvasRef.current.getContext("2d");
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      setSignature(null);
+    }
+    function initCanvas() {
+      if (!canvasRef.current) return;
+      const ctx = canvasRef.current.getContext("2d");
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    }
+    React.useEffect(() => { if (step === 4) setTimeout(initCanvas, 50); }, [step]);
 
     function validate() {
       const e = {};
@@ -419,6 +439,11 @@
         if (!form.email.trim() || !form.email.includes("@")) e.email = "Email invalide";
       }
       if (step===1 && !form.consentRgpd) e.consentRgpd = "Obligatoire";
+      if (step===2) {
+        const m = parseFloat(form.montantDon);
+        if (!form.montantDon || isNaN(m)) e.montantDon = "Requis";
+        else if (m < 10) e.montantDon = "Minimum 10 €";
+      }
       if (step===3) {
         if (!form.ibanDiffere) {
           if (!form.iban.trim()) e.iban = "Requis";
@@ -582,9 +607,21 @@
           <div>
             <div style={{marginBottom:20}}>
               <label style={lbl}>Montant du don mensuel (€)</label>
-              <input type="number" min="1" step="0.01" value={form.montantDon} onChange={e=>update("montantDon",e.target.value)} placeholder="Ex : 20" style={inputS(false)}/>
+              <input
+                type="number" min="10" step="0.01"
+                value={form.montantDon}
+                onChange={e=>update("montantDon",e.target.value)}
+                placeholder="Minimum 10 €"
+                style={{...inputS(montant > 0 && montant < 10), fontSize:16}}
+              />
+              {montant > 0 && montant < 10 && (
+                <div style={{marginTop:8,background:"#fef2f2",border:"1px solid #fecaca",borderRadius:10,padding:"10px 14px",display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{fontSize:18}}>⚠️</span>
+                  <p style={{color:"#dc2626",fontSize:13,fontWeight:700}}>Le montant minimum est de <strong>10 €</strong> par mois. Montant saisi : {montant.toFixed(2)} €</p>
+                </div>
+              )}
             </div>
-            {montant > 0 && (
+            {montant >= 10 && (
               <div className="form-grid-2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
                 <div style={{background:"#f0fdf4",borderRadius:14,padding:"18px 14px",textAlign:"center",border:"1px solid #bbf7d0"}}>
                   <p style={{fontSize:10,fontWeight:700,color:"#14532d",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>Réduction 66%</p>
@@ -734,15 +771,33 @@
             </div>
 
             {/* Signature */}
-            <div style={{background:"white",borderRadius:14,padding:20,border:"2px dashed #c4b5fd",marginBottom:16}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <div style={{marginBottom:16}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                 <p style={{fontSize:14,fontWeight:700,color:"#1a1a2e"}}>✍️ Signature de l'adhérent</p>
-                <button onClick={clearSignature} style={{fontSize:12,color:"#6d28d9",background:"#f5f3ff",border:"1px solid #ddd6fe",padding:"5px 14px",borderRadius:20,cursor:"pointer",fontFamily:font}}>Effacer</button>
+                <button onClick={clearSignature} style={{fontSize:12,color:"#6d28d9",background:"#f5f3ff",border:"1px solid #ddd6fe",padding:"6px 16px",borderRadius:20,cursor:"pointer",fontFamily:font,fontWeight:600}}>🗑 Effacer</button>
               </div>
-              <div style={{background:"#fafaf9",borderRadius:10,border:"1px solid #e5e7eb",position:"relative",touchAction:"none"}}>
-                {!signature&&<div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",color:"#d1d5db",fontSize:13,pointerEvents:"none",fontStyle:"italic"}}>Zone de signature</div>}
-                <canvas ref={canvasRef} width={700} height={160} style={{width:"100%",height:160,display:"block",cursor:"crosshair"}} onMouseDown={startDraw} onMouseMove={draw} onMouseUp={endDraw} onMouseLeave={endDraw} onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={endDraw}/>
+              {/* Cadre de signature */}
+              <div style={{border:"2px solid #c4b5fd",borderRadius:14,overflow:"hidden",background:"white",boxShadow:"0 4px 20px rgba(109,40,217,0.12)",position:"relative"}}>
+                {/* Ligne de base */}
+                <div style={{position:"absolute",bottom:44,left:20,right:20,borderBottom:"1px dashed #d1d5db",pointerEvents:"none",zIndex:1}}/>
+                {/* Texte X */}
+                <div style={{position:"absolute",bottom:32,left:20,color:"#9ca3af",fontSize:18,pointerEvents:"none",zIndex:1,lineHeight:1}}>✕</div>
+                {/* Placeholder */}
+                {!signature && (
+                  <div style={{position:"absolute",top:"40%",left:"50%",transform:"translate(-50%,-50%)",color:"#d1d5db",fontSize:13,pointerEvents:"none",fontStyle:"italic",zIndex:1,textAlign:"center",userSelect:"none"}}>
+                    Signez ici
+                  </div>
+                )}
+                <canvas
+                  ref={canvasRef}
+                  width={800} height={200}
+                  style={{width:"100%",height:200,display:"block",cursor:"crosshair",touchAction:"none"}}
+                  onMouseDown={startDraw} onMouseMove={draw} onMouseUp={endDraw} onMouseLeave={endDraw}
+                  onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={endDraw}
+                />
               </div>
+              {!signature && <p style={{fontSize:11,color:"#9ca3af",marginTop:6,textAlign:"center",fontStyle:"italic"}}>Utilisez votre doigt ou la souris pour signer dans le cadre</p>}
+              {signature && <p style={{fontSize:11,color:"#16a34a",marginTop:6,textAlign:"center",fontWeight:600}}>✓ Signature enregistrée</p>}
             </div>
             {submitError&&<div style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:10,padding:"12px 16px",marginBottom:12,color:"#991b1b",fontSize:13}}>{submitError}</div>}
             <button onClick={handleSubmit} disabled={submitting} style={{width:"100%",padding:"16px",borderRadius:14,border:"none",background:submitting?"#9ca3af":"linear-gradient(135deg,#1e1b4b,#6d28d9)",color:"white",fontSize:15,fontWeight:700,cursor:submitting?"not-allowed":"pointer",fontFamily:font,boxShadow:"0 6px 24px rgba(76,29,149,.4)"}}>
