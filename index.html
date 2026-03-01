@@ -47,35 +47,85 @@
     //  HELPERS SUPABASE
     // ============================================================
     // ── VERSION PWA : gère le mode hors-ligne avec file de sync ──────
-    async function supabaseInsert(table, data) {
-      // Essayer d'abord via le Service Worker (offline-first)
-      if (window.PWA && window.PWA.queueOrSubmit) {
-        const result = await window.PWA.queueOrSubmit({
-          table,
-          data,
-          supabaseUrl: SUPABASE_URL,
-          supabaseKey: SUPABASE_ANON_KEY
-        });
-        if (result.queued) {
-          if (window.PWA.saveLocalDraft) window.PWA.saveLocalDraft({ table, data, localId: result.localId });
-          return [{ ...data, id: result.localId, _offline: true }];
-        }
-        return result.result;
-      }
-      // Fallback : fetch direct si PWA pas encore chargé
-      if (!navigator.onLine) {
-        // Hors-ligne sans PWA : stocker dans localStorage comme secours
-        const key = "offline_queue_" + Date.now();
-        try { localStorage.setItem(key, JSON.stringify({ table, data, ts: new Date().toISOString() })); } catch(e) {}
-        return [{ ...data, id: key, _offline: true }];
-      }
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}`, "Prefer": "return=representation" },
-        body: JSON.stringify(data),
+    // ── INDEXEDDB OFFLINE QUEUE (autonome, sans dépendance pwa.js) ──────
+    function openOfflineDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open('adhesion-offline-db', 1);
+        req.onupgradeneeded = e => {
+          e.target.result.createObjectStore('queue', { keyPath: 'id', autoIncrement: true });
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
       });
-      if (!res.ok) throw new Error(await res.text());
-      return res.json();
+    }
+
+    async function saveToOfflineQueue(table, data) {
+      const db = await openOfflineDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction('queue', 'readwrite');
+        const req = tx.objectStore('queue').add({
+          table, data,
+          supabaseUrl: SUPABASE_URL,
+          supabaseKey: SUPABASE_ANON_KEY,
+          savedAt: new Date().toISOString()
+        });
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function syncOfflineQueue() {
+      try {
+        const db = await openOfflineDB();
+        const items = await new Promise((res, rej) => {
+          const req = db.transaction('queue', 'readonly').objectStore('queue').getAll();
+          req.onsuccess = () => res(req.result || []);
+          req.onerror = () => rej(req.error);
+        });
+        for (const item of items) {
+          try {
+            const r = await fetch(`${item.supabaseUrl}/rest/v1/${item.table}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "apikey": item.supabaseKey, "Authorization": `Bearer ${item.supabaseKey}`, "Prefer": "return=representation" },
+              body: JSON.stringify(item.data)
+            });
+            if (r.ok) {
+              const tx = db.transaction('queue', 'readwrite');
+              tx.objectStore('queue').delete(item.id);
+            }
+          } catch(e) {}
+        }
+      } catch(e) {}
+    }
+
+    // Sync au retour de la connexion
+    window.addEventListener('online', syncOfflineQueue);
+    // Sync au chargement si en ligne
+    if (navigator.onLine) setTimeout(syncOfflineQueue, 2000);
+
+    async function supabaseInsert(table, data) {
+      // Si en ligne : envoyer directement
+      if (navigator.onLine) {
+        try {
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}`, "Prefer": "return=representation" },
+            body: JSON.stringify(data),
+          });
+          if (res.ok) return res.json();
+          throw new Error(await res.text());
+        } catch(e) {
+          // Réseau disponible mais fetch échoué → mettre en queue
+          if (e.message && e.message.includes('fetch')) {
+            const id = await saveToOfflineQueue(table, data);
+            return [{ ...data, _offline: true, _id: id }];
+          }
+          throw e;
+        }
+      }
+      // Hors-ligne : sauvegarder dans IndexedDB
+      const id = await saveToOfflineQueue(table, data);
+      return [{ ...data, _offline: true, _id: id }];
     }
 
     async function supabaseFetch(table) {
