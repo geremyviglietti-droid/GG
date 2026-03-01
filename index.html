@@ -104,28 +104,28 @@
     if (navigator.onLine) setTimeout(syncOfflineQueue, 2000);
 
     async function supabaseInsert(table, data) {
-      // Si en ligne : envoyer directement
-      if (navigator.onLine) {
-        try {
-          const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}`, "Prefer": "return=representation" },
-            body: JSON.stringify(data),
-          });
-          if (res.ok) return res.json();
-          throw new Error(await res.text());
-        } catch(e) {
-          // Réseau disponible mais fetch échoué → mettre en queue
-          if (e.message && e.message.includes('fetch')) {
-            const id = await saveToOfflineQueue(table, data);
-            return [{ ...data, _offline: true, _id: id }];
-          }
-          throw e;
-        }
+      // Toujours essayer le réseau d'abord, avec timeout de 6 secondes
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 6000);
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}`, "Prefer": "return=representation" },
+          body: JSON.stringify(data),
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+        if (res.ok) return res.json();
+        // Erreur Supabase (ex: 400, 500) → on la propage vraiment
+        const errText = await res.text();
+        throw new Error("Erreur serveur : " + errText);
+      } catch(e) {
+        // Si c'est une vraie erreur Supabase (pas réseau), on la propage
+        if (e.message && e.message.startsWith("Erreur serveur")) throw e;
+        // Tout autre échec (réseau coupé, timeout, fetch failed) → mode offline
+        const id = await saveToOfflineQueue(table, data);
+        return [{ ...data, _offline: true, _id: id }];
       }
-      // Hors-ligne : sauvegarder dans IndexedDB
-      const id = await saveToOfflineQueue(table, data);
-      return [{ ...data, _offline: true, _id: id }];
     }
 
     async function supabaseFetch(table) {
