@@ -10,614 +10,1636 @@
   <meta name="apple-mobile-web-app-title" content="Adhésion" />
   <link rel="apple-touch-icon" href="/icons/icon-192.png" />
   <meta name="theme-color" content="#1e1b4b" />
-  <title>Formulaire d'adhésion</title>
+  <title>Tableau de bord — Espace Collecteur</title>
   <link rel="stylesheet" href="/libs/fonts.css" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #1e1b4b; font-family: 'DM Sans', sans-serif; }
-    input[type=number]::-webkit-inner-spin-button,
-    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-    input[type=number] { -moz-appearance: textfield; }
+    body { background: #0f0e1a; font-family: 'DM Sans', sans-serif; min-height: 100vh; color: white; }
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes pulse { 0%,100% { opacity:.6; } 50% { opacity:1; } }
+    .fade-in { animation: fadeIn 0.5s ease forwards; }
+    .card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 28px; transition: border-color .2s, background .2s; }
+    .card:hover { background: rgba(255,255,255,0.06); border-color: rgba(124,58,237,0.4); }
+    .stat-value { font-family: 'Cormorant Garamond', serif; font-size: 36px; font-weight: 700; line-height: 1; }
+    .stat-label { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-top: 8px; }
+    .btn-ghost { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.8); border: 1px solid rgba(255,255,255,0.12); padding: 9px 18px; border-radius: 10px; font-family: 'DM Sans',sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: background .2s; text-decoration: none; display: inline-block; }
+    .btn-ghost:hover { background: rgba(255,255,255,0.12); }
+    .nav-link { color: rgba(255,255,255,0.55); text-decoration: none; font-size: 14px; font-weight: 500; padding: 8px 16px; border-radius: 10px; transition: background .2s, color .2s; border: none; cursor: pointer; font-family: 'DM Sans',sans-serif; background: transparent; }
+    .nav-link:hover, .nav-link.active { background: rgba(255,255,255,0.08); color: white; }
+    .loading-dot { animation: pulse 1.4s infinite; }
+    .badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+    .badge-purple { background: rgba(124,58,237,.2); color: #a78bfa; border: 1px solid rgba(124,58,237,.3); }
+
+    /* ── MOBILE NAV BAR ── */
+    .mobile-nav { display: none; position: fixed; bottom: 0; left: 0; right: 0; background: rgba(15,14,26,0.97); border-top: 1px solid rgba(255,255,255,0.08); z-index: 200; padding: 8px 0 env(safe-area-inset-bottom, 8px); backdrop-filter: blur(20px); }
+    .mobile-nav-items { display: flex; justify-content: space-around; align-items: center; }
+    .mobile-nav-btn { background: none; border: none; color: rgba(255,255,255,0.4); cursor: pointer; font-family: 'DM Sans',sans-serif; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 12px; border-radius: 12px; transition: all .2s; min-width: 60px; position: relative; }
+    .mobile-nav-btn.active { color: #a78bfa; background: rgba(124,58,237,.15); }
+    .mobile-nav-btn .nav-icon { font-size: 20px; line-height: 1; }
+    .mobile-nav-btn .nav-label { font-size: 10px; font-weight: 600; letter-spacing: .03em; }
+    .mobile-nav-badge { position: absolute; top: 4px; right: 8px; width: 16px; height: 16px; border-radius: 50%; background: #ef4444; color: white; font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      .mobile-nav { display: block; }
+      .desktop-header-nav { display: none !important; }
+      .desktop-header-right { display: none !important; }
+      header { padding: 0 16px !important; }
+      main { padding: 20px 16px 90px !important; }
+      .dashboard-grid { grid-template-columns: 1fr !important; }
+      .stats-grid-3 { grid-template-columns: 1fr 1fr !important; }
+      .stats-grid-2 { grid-template-columns: 1fr !important; }
+      .kpi-grid { grid-template-columns: 1fr 1fr !important; }
+      .donation-form-wrap { padding: 20px 16px !important; border-radius: 20px !important; }
+      .form-grid-2 { grid-template-columns: 1fr !important; }
+      .form-grid-cp { grid-template-columns: 120px 1fr !important; }
+      .recap-grid-2 { grid-template-columns: 1fr !important; }
+      .recap-cells { grid-template-columns: 1fr !important; }
+      .stat-value { font-size: 28px !important; }
+      .card { padding: 18px !important; border-radius: 16px !important; }
+      .pie-wrap { flex-direction: column !important; align-items: flex-start !important; }
+      h1[data-page-title] { font-size: 28px !important; }
+      .rappel-card { flex-direction: column !important; align-items: flex-start !important; gap: 12px !important; }
+      .rappel-actions { width: 100% !important; flex-direction: row !important; align-items: center !important; justify-content: space-between !important; }
+      .completion-panel-wrap { padding: 20px 16px !important; border-radius: 20px !important; }
+      .step-label { display: none !important; }
+      .login-card { padding: 32px 20px !important; }
+      .admin-btn-side { display: none !important; }
+      .admin-btn-mobile { display: flex !important; }
+    }
+
+    @media (min-width: 769px) {
+      .mobile-header-right { display: none !important; }
+    }
+    @media (max-width: 768px) {
+      .desktop-header-right { display: none !important; }
+    }
+      main { padding: 28px 20px !important; }
+      .stats-grid-3 { grid-template-columns: repeat(2, 1fr) !important; }
+      .kpi-grid { grid-template-columns: repeat(3, 1fr) !important; }
+    }
+
+    .admin-btn-mobile { display: none; align-items: center; gap: 6px; background: rgba(124,58,237,.12); border: 1px solid rgba(124,58,237,.25); border-radius: 8px; padding: 6px 12px; color: rgba(167,139,250,0.7); font-size: 12px; font-family: 'DM Sans',sans-serif; font-weight: 600; text-decoration: none; cursor: pointer; }
+
+    /* Ville suggestions dropdown */
+    .ville-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 2px solid #6d28d9; border-top: none; border-radius: 0 0 12px 12px; z-index: 100; max-height: 200px; overflow-y: auto; box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
+    .ville-dropdown-item { padding: 10px 14px; font-size: 13px; color: #1a1a2e; cursor: pointer; border-bottom: 1px solid #f3f4f6; font-family: 'DM Sans',sans-serif; }
+    .ville-dropdown-item:hover { background: #f5f3ff; color: #4c1d95; }
+    .ville-dropdown-item:last-child { border-bottom: none; }
+
+    /* Bar chart */
+    .bar-chart-wrap { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+    .bar-row { display: flex; align-items: center; gap: 8px; }
+    .bar-label { font-size: 11px; color: rgba(255,255,255,0.5); min-width: 52px; text-align: right; flex-shrink: 0; }
+    .bar-track { flex: 1; background: rgba(255,255,255,0.06); border-radius: 6px; height: 22px; position: relative; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 6px; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; transition: width .6s cubic-bezier(.4,0,.2,1); min-width: 0; }
+    .bar-fill span { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.9); white-space: nowrap; }
+    .bar-count { font-size: 11px; color: rgba(255,255,255,0.35); min-width: 20px; text-align: left; flex-shrink: 0; }
   </style>
 </head>
 <body>
-  <div id="root"></div>
+<div id="root"></div>
 
-  <script src="/libs/react.min.js"></script>
-  <script src="/libs/react-dom.min.js"></script>
-  <script src="/libs/babel.min.js"></script>
+<script src="/libs/react.min.js"></script>
+<script src="/libs/react-dom.min.js"></script>
+<script src="/libs/babel.min.js"></script>
 
-  <script type="text/babel">
-    const { useState, useRef, useEffect } = React;
+<script type="text/babel">
+  const { useState, useEffect, useRef } = React;
 
-    // ============================================================
-    //  CONFIGURATION SUPABASE — MODIFIEZ CES 2 LIGNES
-    //  Dashboard Supabase → Settings → API
-    // ============================================================
-    const SUPABASE_URL = "https://couruebftrtlqwffdavz.supabase.co";
-    const SUPABASE_ANON_KEY = "sb_publishable_XKVDlf9Bem837GPgx8RNqw_lgs9Q6zc";
+  const SUPABASE_URL  = "https://couruebftrtlqwffdavz.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_XKVDlf9Bem837GPgx8RNqw_lgs9Q6zc";
+  const serif = "'Cormorant Garamond', serif";
+  const font  = "'DM Sans', sans-serif";
 
-    // Mot de passe CRM — changez-le !
-    const CRM_PASSWORD = "admin1234";
-
-    // ============================================================
-    //  HELPERS SUPABASE
-    // ============================================================
-    // ── VERSION PWA : gère le mode hors-ligne avec file de sync ──────
-    async function supabaseInsert(table, data) {
-      const result = await window.PWA.queueOrSubmit({
-        table,
-        data,
-        supabaseUrl: SUPABASE_URL,
-        supabaseKey: SUPABASE_ANON_KEY
-      });
-      if (result.queued) {
-        // Sauvegarder aussi un brouillon local pour affichage immédiat
-        window.PWA.saveLocalDraft({ table, data, localId: result.localId });
-        // Retourner un objet "fantôme" pour que le reste du code fonctionne
-        return [{ ...data, id: result.localId, _offline: true }];
-      }
-      return result.result;
-    }
-
-    async function supabaseFetch(table) {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?select=*&order=created_at.desc`, {
-        headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` },
-      });
-      if (!res.ok) throw new Error(await res.text());
-      return res.json();
-    }
-
-    async function supabaseDelete(table, id) {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
-        method: "DELETE",
-        headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` },
-      });
-      if (!res.ok) throw new Error(await res.text());
-    }
-
-    // ============================================================
-    //  VALIDATION IBAN
-    // ============================================================
-    const IBAN_LENGTHS = { FR: 27, DE: 22, BE: 16, ES: 24, IT: 27, CH: 21, GB: 22, NL: 18, PT: 25, LU: 20, AT: 20, SE: 24 };
-
-    function validateIBAN(iban) {
-      const c = iban.replace(/\s/g, "").toUpperCase();
-      if (c.length < 15 || c.length > 34) return false;
-      if (IBAN_LENGTHS[c.slice(0, 2)] && c.length !== IBAN_LENGTHS[c.slice(0, 2)]) return false;
-      const r = (c.slice(4) + c.slice(0, 4)).split("").map(x => isNaN(x) ? (x.charCodeAt(0) - 55).toString() : x).join("");
-      let rem = 0;
-      for (let i = 0; i < r.length; i++) rem = (rem * 10 + parseInt(r[i])) % 97;
-      return rem === 1;
-    }
-
-    function isIBANComplete(iban) {
-      const c = iban.replace(/\s/g, "").toUpperCase();
-      return IBAN_LENGTHS[c.slice(0, 2)] ? c.length === IBAN_LENGTHS[c.slice(0, 2)] : c.length >= 15;
-    }
-
-    // ============================================================
-    //  STYLES
-    // ============================================================
-    const font = "'DM Sans', sans-serif";
-    const serif = "'Cormorant Garamond', serif";
-
-    const inputStyle = (err, ok) => ({
-      border: `2px solid ${err ? "#f87171" : ok ? "#22c55e" : "#e2e8f0"}`,
-      borderRadius: 14, padding: "15px 18px", width: "100%", outline: "none",
-      fontSize: 15, fontFamily: font, background: err ? "#fff5f5" : ok ? "#f0fdf4" : "white",
-      color: "#1a1a2e", boxSizing: "border-box", transition: "border 0.2s",
+  // ── HELPERS ───────────────────────────────────────────────────────
+  async function supabaseFetch(table, filter = "") {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?select=*${filter}&order=created_at.desc`, {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
     });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  }
 
-    const lbl = {
-      fontSize: 11, fontWeight: 700, color: "#6b7280", display: "block",
-      marginBottom: 7, letterSpacing: "0.08em", textTransform: "uppercase",
-    };
+  async function supabaseDelete(table, id) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+      method: "DELETE",
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+    });
+    if (!res.ok) throw new Error(await res.text());
+  }
 
-    const steps = ["Coordonnées", "RGPD", "Simulateur de don", "IBAN / BIC", "Récapitulatif"];
+  async function supabaseUpdate(table, id, data) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, Prefer: "return=representation" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  }
 
-    // ============================================================
-    //  EXPORT CSV
-    // ============================================================
-    function exportCSV(rows) {
-      const headers = ["ID","Date","Nom","Prénom","Naissance","Adresse","CP","Ville","Téléphone","Email","RGPD","Marketing","Don (€)","Réduction (€)","Coût net (€)","IBAN","BIC"];
-      const lines = rows.map(r => [r.id, new Date(r.created_at).toLocaleDateString("fr-FR"), r.nom, r.prenom, r.date_naissance, r.adresse, r.code_postal, r.ville, r.telephone, r.email, r.consent_rgpd ? "Oui" : "Non", r.consent_marketing ? "Oui" : "Non", r.montant_don ?? "", r.reduction_fiscale ?? "", r.cout_net ?? "", r.iban, r.bic].map(v => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","));
-      const blob = new Blob(["\uFEFF" + [headers.join(","), ...lines].join("\n")], { type: "text/csv;charset=utf-8;" });
-      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `adherents_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+  async function supabaseInsert(table, data) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, Prefer: "return=representation" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  }
+
+  function calcAge(dateStr) {
+    if (!dateStr) return null;
+    const parts = String(dateStr).split(/[-\/]/);
+    if (parts.length < 3) return null;
+    const bYear = parseInt(parts[0]), bMonth = parseInt(parts[1]) - 1, bDay = parseInt(parts[2]);
+    if (isNaN(bYear) || isNaN(bMonth) || isNaN(bDay)) return null;
+    const n = new Date();
+    let age = n.getFullYear() - bYear;
+    if (n.getMonth() < bMonth || (n.getMonth() === bMonth && n.getDate() < bDay)) age--;
+    return (age >= 0 && age < 120) ? age : null;
+  }
+
+  async function hashPassword(pwd) {
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pwd));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+  }
+
+  // ── IBAN ──────────────────────────────────────────────────────────
+  const IBAN_LENGTHS = { FR:27,DE:22,BE:16,ES:24,IT:27,CH:21,GB:22,NL:18,PT:25,LU:20,AT:20,SE:24 };
+  function validateIBAN(iban) {
+    const c = iban.replace(/\s/g,"").toUpperCase();
+    if (c.length < 15 || c.length > 34) return false;
+    if (IBAN_LENGTHS[c.slice(0,2)] && c.length !== IBAN_LENGTHS[c.slice(0,2)]) return false;
+    const r = (c.slice(4)+c.slice(0,4)).split("").map(x=>isNaN(x)?(x.charCodeAt(0)-55).toString():x).join("");
+    let rem = 0; for (let i=0;i<r.length;i++) rem=(rem*10+parseInt(r[i]))%97;
+    return rem===1;
+  }
+  function isIBANComplete(iban) {
+    const c = iban.replace(/\s/g,"").toUpperCase();
+    return IBAN_LENGTHS[c.slice(0,2)] ? c.length===IBAN_LENGTHS[c.slice(0,2)] : c.length>=15;
+  }
+
+  // ── PIE CHART ─────────────────────────────────────────────────────
+  function PieChart({ data, size = 160 }) {
+    const [hovered, setHovered] = React.useState(null);
+    const total = data.reduce((s, d) => s + d.value, 0);
+    if (total === 0) return <div style={{textAlign:"center",color:"rgba(255,255,255,0.3)",fontSize:12,padding:20}}>Pas encore de données</div>;
+    let cumAngle = -Math.PI / 2;
+    const cx = size / 2, cy = size / 2, r = size / 2 - 8;
+    const slices = data.map(d => {
+      const angle = (d.value / total) * 2 * Math.PI;
+      const x1 = cx + r * Math.cos(cumAngle);
+      const y1 = cy + r * Math.sin(cumAngle);
+      cumAngle += angle;
+      const x2 = cx + r * Math.cos(cumAngle);
+      const y2 = cy + r * Math.sin(cumAngle);
+      const large = angle > Math.PI ? 1 : 0;
+      const midAngle = cumAngle - angle / 2;
+      return { ...d, x1, y1, x2, y2, large, midAngle, pct: Math.round(d.value / total * 100) };
+    }).filter(s => s.value > 0);
+    return (
+      <div className="pie-wrap" style={{display:"flex",alignItems:"center",gap:20,flexWrap:"wrap"}}>
+        <svg width={size} height={size} style={{flexShrink:0}}>
+          {slices.map((s, i) => (
+            <path key={i}
+              d={`M${cx},${cy} L${s.x1},${s.y1} A${r},${r} 0 ${s.large},1 ${s.x2},${s.y2} Z`}
+              fill={s.color}
+              opacity={hovered === null || hovered === i ? 1 : 0.4}
+              stroke="rgba(15,14,26,0.6)" strokeWidth={2}
+              style={{cursor:"pointer",transition:"opacity .2s"}}
+              onMouseEnter={() => setHovered(i)}
+              onMouseLeave={() => setHovered(null)}
+              onClick={() => setHovered(hovered === i ? null : i)}
+            />
+          ))}
+          {hovered !== null && slices[hovered] && (
+            <text x={cx} y={cy-6} textAnchor="middle" fill="white" fontSize={13} fontWeight="700">{slices[hovered].pct}%</text>
+          )}
+          {hovered !== null && slices[hovered] && (
+            <text x={cx} y={cy+10} textAnchor="middle" fill="rgba(255,255,255,0.6)" fontSize={9}>{slices[hovered].label}</text>
+          )}
+          {hovered === null && (
+            <text x={cx} y={cy+5} textAnchor="middle" fill="rgba(255,255,255,0.3)" fontSize={10}>{total} adh.</text>
+          )}
+        </svg>
+        <div style={{display:"flex",flexDirection:"column",gap:5}}>
+          {slices.map((s, i) => (
+            <div key={i} style={{display:"flex",alignItems:"center",gap:7,opacity:hovered===null||hovered===i?1:0.4,transition:"opacity .2s",cursor:"pointer"}}
+              onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)} onClick={() => setHovered(hovered===i?null:i)}>
+              <div style={{width:10,height:10,borderRadius:3,background:s.color,flexShrink:0}}/>
+              <span style={{fontSize:11,color:"rgba(255,255,255,0.6)"}}>{s.label}</span>
+              <span style={{fontSize:11,fontWeight:700,color:"white",marginLeft:"auto",paddingLeft:8}}>{s.value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // ── BAR CHART ─────────────────────────────────────────────────────
+  function BarChart({ data }) {
+    const max = Math.max(...data.map(d => d.value), 1);
+    const hasData = data.some(d => d.value > 0);
+    if (!hasData) return <div style={{textAlign:"center",color:"rgba(255,255,255,0.3)",fontSize:12,padding:20}}>Pas encore de données</div>;
+    return (
+      <div className="bar-chart-wrap">
+        {data.map((d, i) => (
+          <div key={i} className="bar-row">
+            <span className="bar-label">{d.label}</span>
+            <div className="bar-track">
+              <div className="bar-fill" style={{width:`${(d.value/max)*100}%`, background:d.color, opacity:d.value===0?0.15:1}}>
+                {d.value > 0 && <span>{d.value}</span>}
+              </div>
+            </div>
+            <span className="bar-count">{d.value}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // ── LOGIN SCREEN ──────────────────────────────────────────────────
+  function LoginScreen({ onLogin }) {
+    const [email, setEmail]       = useState("");
+    const [password, setPassword] = useState("");
+    const [showPwd, setShowPwd]   = useState(false);
+    const [loading, setLoading]   = useState(false);
+    const [error, setError]       = useState(null);
+
+    async function handleLogin() {
+      if (!email.trim() || !password) { setError("Veuillez remplir tous les champs."); return; }
+      setLoading(true); setError(null);
+      try {
+        const hash = await hashPassword(password);
+        const res = await fetch(
+          `${SUPABASE_URL}/rest/v1/collecteurs?email=eq.${encodeURIComponent(email.trim())}&password_hash=eq.${hash}&select=*`,
+          { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
+        );
+        const rows = await res.json();
+        if (!rows || rows.length === 0) {
+          setError("Email ou mot de passe incorrect.");
+        } else {
+          const user = rows[0];
+          sessionStorage.setItem("collecteur", JSON.stringify(user));
+          onLogin(user);
+        }
+      } catch(e) { setError("Erreur de connexion : " + e.message); }
+      setLoading(false);
     }
 
-    // ============================================================
-    //  CRM
-    // ============================================================
-    function CRM({ onClose }) {
-      const [rows, setRows] = useState([]);
-      const [loading, setLoading] = useState(true);
-      const [error, setError] = useState(null);
-      const [search, setSearch] = useState("");
-      const [sortField, setSortField] = useState("created_at");
-      const [sortDir, setSortDir] = useState("desc");
-      const [selected, setSelected] = useState(null);
-      const [delConfirm, setDelConfirm] = useState(null);
-      const [filterDon, setFilterDon] = useState("");
+    const inp = (err) => ({
+      border: `2px solid ${err ? "#f87171" : "rgba(255,255,255,0.1)"}`,
+      borderRadius: 14, padding: "14px 18px", width: "100%", outline: "none",
+      fontSize: 15, fontFamily: font, background: "rgba(255,255,255,0.05)",
+      color: "white", boxSizing: "border-box", transition: "border .2s",
+    });
+    const lbl = { fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.4)", display:"block", marginBottom:7, letterSpacing:".08em", textTransform:"uppercase" };
 
-      useEffect(() => { load(); }, []);
+    return (
+      <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"radial-gradient(ellipse at 60% 30%, rgba(76,29,149,.25), transparent 60%), #0f0e1a",padding:24}}>
+        <div className="fade-in login-card" style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:28,padding:"52px 44px",maxWidth:420,width:"100%"}}>
+          <div style={{textAlign:"center",marginBottom:36}}>
+            <div style={{width:60,height:60,borderRadius:18,background:"linear-gradient(135deg,#4c1d95,#6d28d9)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 20px",fontSize:26}}>🎯</div>
+            <h1 style={{fontFamily:serif,fontSize:32,color:"white",fontWeight:600,marginBottom:6}}>Espace Collecteur</h1>
+            <p style={{color:"rgba(255,255,255,0.4)",fontSize:14}}>Connectez-vous pour accéder à votre tableau de bord</p>
+          </div>
+          <div style={{marginBottom:16}}>
+            <label style={lbl}>Adresse email</label>
+            <input type="email" value={email} onChange={e=>{setEmail(e.target.value);setError(null);}} onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder="jean.martin@email.com" style={inp(!!error)} />
+          </div>
+          <div style={{marginBottom:24}}>
+            <label style={lbl}>Mot de passe</label>
+            <div style={{position:"relative"}}>
+              <input type={showPwd?"text":"password"} value={password} onChange={e=>{setPassword(e.target.value);setError(null);}} onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder="••••••••" style={{...inp(!!error),paddingRight:48}} />
+              <button onClick={()=>setShowPwd(v=>!v)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.4)",fontSize:16}}>{showPwd?"🙈":"👁"}</button>
+            </div>
+          </div>
+          {error && <div style={{background:"rgba(239,68,68,.12)",border:"1px solid rgba(239,68,68,.3)",borderRadius:10,padding:"12px 16px",marginBottom:16,color:"#f87171",fontSize:13,textAlign:"center"}}>{error}</div>}
+          <button onClick={handleLogin} disabled={loading} style={{width:"100%",padding:"15px",borderRadius:14,border:"none",background:loading?"rgba(255,255,255,0.1)":"linear-gradient(135deg,#4c1d95,#6d28d9)",color:loading?"rgba(255,255,255,0.4)":"white",fontSize:15,fontWeight:700,cursor:loading?"not-allowed":"pointer",fontFamily:font,boxShadow:loading?"none":"0 8px 28px rgba(76,29,149,.45)",transition:"all .2s"}}>
+            {loading ? "Connexion en cours…" : "Se connecter →"}
+          </button>
+          <p style={{textAlign:"center",fontSize:13,color:"rgba(255,255,255,0.35)",marginTop:20}}>
+            Pas encore de compte ? <a href="register.html" style={{color:"#a78bfa",textDecoration:"none",fontWeight:600}}>S'inscrire</a>
+          </p>
+        </div>
+      </div>
+    );
+  }
 
-      async function load() {
-        setLoading(true); setError(null);
-        try { setRows(await supabaseFetch("adherents")); }
-        catch (e) { setError("Impossible de charger les données. Vérifiez la configuration Supabase. " + e.message); }
-        setLoading(false);
-      }
+  // ── DONATION PANEL ────────────────────────────────────────────────
+  function DonationPanel({ currentUser, onSuccess }) {
+    const [step, setStep]             = useState(0);
+    const [form, setForm]             = useState({ nom:"", prenom:"", sexe:"", dateNaissance:"", adresse:"", codePostal:"", ville:"", telephone:"", email:"", consentRgpd:false, consentMarketing:false, montantDon:"", iban:"", bic:"", ibanValid:null, rdvDate:"", rdvHeure:"", rdvNote:"", ibanDiffere:false });
+    const [errors, setErrors]         = useState({});
+    const [submitting, setSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState(null);
+    const [done, setDone]             = useState(false);
+    const [villeSuggestions, setVilleSuggestions] = useState([]);
+    const [loadingVille, setLoadingVille] = useState(false);
+    const canvasRef = useRef(null);
+    const lastPos   = useRef(null);
+    const [drawing, setDrawing]       = useState(false);
+    const [signature, setSignature]   = useState(null);
+    const cpTimerRef = useRef(null);
 
-      async function handleDelete(id) {
-        try { await supabaseDelete("adherents", id); setRows(r => r.filter(x => x.id !== id)); setDelConfirm(null); setSelected(null); }
-        catch { alert("Erreur lors de la suppression."); }
-      }
+    const steps = ["Coordonnées","RGPD","Don","IBAN","Récap & Signature"];
+    const montant = parseFloat(form.montantDon) || 0;
+    const defiscalisation = (montant * 0.66).toFixed(2);
+    const netDon = (montant * 0.34).toFixed(2);
 
-      function sort(field) {
-        if (sortField === field) setSortDir(d => d === "asc" ? "desc" : "asc");
-        else { setSortField(field); setSortDir("asc"); }
-      }
+    // Auto-lookup city from postal code (French API)
+    async function lookupVille(cp) {
+      if (cp.length < 5) { setVilleSuggestions([]); return; }
+      setLoadingVille(true);
+      try {
+        const res = await fetch(`https://geo.api.gouv.fr/communes?codePostal=${cp}&fields=nom,codesPostaux&limit=8`);
+        const data = await res.json();
+        setVilleSuggestions(data.map(c => c.nom));
+        if (data.length === 1) {
+          setForm(f => ({...f, ville: data[0].nom}));
+          setErrors(e => ({...e, ville: undefined}));
+          setVilleSuggestions([]);
+        }
+      } catch(e) { setVilleSuggestions([]); }
+      setLoadingVille(false);
+    }
 
-      const filtered = rows.filter(r => {
-        const q = search.toLowerCase();
-        const ms = !q || `${r.nom} ${r.prenom} ${r.email} ${r.ville} ${r.telephone}`.toLowerCase().includes(q);
-        const md = !filterDon || (filterDon === "0" && !r.montant_don) || (filterDon === "1" && r.montant_don > 0 && r.montant_don <= 25) || (filterDon === "2" && r.montant_don > 25 && r.montant_don <= 100) || (filterDon === "3" && r.montant_don > 100);
-        return ms && md;
-      }).sort((a, b) => {
-        const va = a[sortField] ?? ""; const vb = b[sortField] ?? "";
-        return sortDir === "asc" ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
+    function formatPhone(raw) {
+      const digits = raw.replace(/\D/g, "").slice(0, 10);
+      return digits.replace(/(\d{2})(?=\d)/g, "$1 ").trim();
+    }
+
+    // Format IBAN: groups of 4 chars
+    function formatIBAN(raw) {
+      const clean = raw.replace(/\s/g, "").toUpperCase();
+      return clean.replace(/(.{4})(?=.)/g, "$1 ").trim();
+    }
+
+    function update(k, v) {
+      setForm(f => {
+        const n = {...f, [k]:v};
+        if (k === "iban") {
+          n[k] = formatIBAN(v);
+          n.ibanValid = isIBANComplete(n[k]) ? validateIBAN(n[k]) : null;
+        }
+        if (k === "telephone") n[k] = formatPhone(v);
+        return n;
       });
+      setErrors(e => ({...e, [k]:undefined}));
+      if (k === "codePostal") {
+        clearTimeout(cpTimerRef.current);
+        if (v.length >= 5) {
+          cpTimerRef.current = setTimeout(() => lookupVille(v), 300);
+        } else {
+          setVilleSuggestions([]);
+        }
+      }
+    }
 
-      const totalDons = filtered.reduce((s, r) => s + (parseFloat(r.montant_don) || 0), 0);
-      const Arrow = ({ f }) => <span style={{ opacity: 0.5 }}>{sortField === f ? (sortDir === "asc" ? " ↑" : " ↓") : " ↕"}</span>;
-      const thStyle = { padding: "14px 12px", textAlign: "left", color: "rgba(255,255,255,0.4)", fontWeight: 600, letterSpacing: "0.06em", fontSize: 11, textTransform: "uppercase", cursor: "pointer", whiteSpace: "nowrap", userSelect: "none" };
+    const inputS = (err, ok) => ({ border:`2px solid ${err?"#f87171":ok?"#22c55e":"#e2e8f0"}`, borderRadius:14, padding:"13px 16px", width:"100%", outline:"none", fontSize:14, fontFamily:font, background:err?"#fff5f5":ok?"#f0fdf4":"white", color:"#1a1a2e", boxSizing:"border-box" });
+    const lbl = { fontSize:11, fontWeight:700, color:"#6b7280", display:"block", marginBottom:6, letterSpacing:".08em", textTransform:"uppercase" };
 
-      return (
-        <div style={{ position: "fixed", inset: 0, background: "#0f0e1a", zIndex: 1000, fontFamily: font, display: "flex", flexDirection: "column" }}>
-          <div style={{ background: "linear-gradient(90deg,#1e1b4b,#4c1d95)", padding: "18px 32px", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
-            <div>
-              <h1 style={{ fontFamily: serif, fontSize: 26, color: "white", fontWeight: 600, margin: 0 }}>CRM Adhérents</h1>
-              <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, margin: "4px 0 0" }}>{filtered.length} adhérent{filtered.length > 1 ? "s" : ""} · Total dons : {totalDons.toFixed(2)} €/mois</p>
+    function posFromEvent(e, canvas) {
+      const r = canvas.getBoundingClientRect();
+      const src = e.touches ? e.touches[0] : e;
+      return { x:(src.clientX-r.left)*(canvas.width/r.width), y:(src.clientY-r.top)*(canvas.height/r.height) };
+    }
+    function startDraw(e) { e.preventDefault(); lastPos.current = posFromEvent(e, canvasRef.current); setDrawing(true); }
+    function draw(e) {
+      if (!drawing) return; e.preventDefault();
+      const ctx = canvasRef.current.getContext("2d");
+      const p = posFromEvent(e, canvasRef.current);
+      ctx.beginPath(); ctx.strokeStyle="#1a1a2e"; ctx.lineWidth=2.5; ctx.lineCap="round"; ctx.lineJoin="round";
+      ctx.moveTo(lastPos.current.x, lastPos.current.y); ctx.lineTo(p.x, p.y); ctx.stroke();
+      lastPos.current = p;
+    }
+    function endDraw(e) { e.preventDefault(); setDrawing(false); setSignature(canvasRef.current.toDataURL()); }
+    function clearSignature() {
+      const ctx = canvasRef.current.getContext("2d");
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      setSignature(null);
+    }
+    function initCanvas() {
+      if (!canvasRef.current) return;
+      const ctx = canvasRef.current.getContext("2d");
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    }
+    React.useEffect(() => { if (step === 4) setTimeout(initCanvas, 50); }, [step]);
+
+    function validate() {
+      const e = {};
+      if (step===0) {
+        if (!form.nom.trim())    e.nom = "Requis";
+        if (!form.prenom.trim()) e.prenom = "Requis";
+        if (!form.dateNaissance) e.dateNaissance = "Requis";
+        if (!form.adresse.trim()) e.adresse = "Requis";
+        if (!form.codePostal.trim()) e.codePostal = "Requis";
+        if (!form.ville.trim())  e.ville = "Requis";
+        if (!form.telephone.trim()) e.telephone = "Requis";
+        if (!form.email.trim() || !form.email.includes("@")) e.email = "Email invalide";
+      }
+      if (step===1 && !form.consentRgpd) e.consentRgpd = "Obligatoire";
+      if (step===2) {
+        const m = parseFloat(form.montantDon);
+        if (!form.montantDon || isNaN(m)) e.montantDon = "Requis";
+        else if (m < 10) e.montantDon = "Minimum 10 €";
+      }
+      if (step===3) {
+        if (!form.ibanDiffere) {
+          if (!form.iban.trim()) e.iban = "Requis";
+          else if (form.ibanValid === false) e.iban = "IBAN invalide";
+          else if (form.ibanValid === null)  e.iban = "IBAN incomplet";
+        } else {
+          if (!form.rdvDate) e.rdvDate = "Veuillez choisir une date de rappel";
+          if (!form.rdvHeure) e.rdvHeure = "Veuillez choisir une heure";
+        }
+      }
+      setErrors(e);
+      return Object.keys(e).length === 0;
+    }
+
+    function next() { if (validate()) setStep(s => s+1); }
+    function prev() { setStep(s => s-1); }
+
+    async function handleSubmit() {
+      if (!signature) { alert("Veuillez signer avant de valider."); return; }
+      setSubmitting(true); setSubmitError(null);
+      try {
+        await supabaseInsert("adherents", {
+          nom: form.nom, prenom: form.prenom, sexe: form.sexe || null, date_naissance: form.dateNaissance,
+          adresse: form.adresse, code_postal: form.codePostal, ville: form.ville,
+          telephone: form.telephone, email: form.email,
+          consent_rgpd: form.consentRgpd, consent_marketing: form.consentMarketing,
+          montant_don: form.montantDon ? parseFloat(form.montantDon) : null,
+          reduction_fiscale: form.montantDon ? parseFloat(defiscalisation) : null,
+          cout_net: form.montantDon ? parseFloat(netDon) : null,
+          iban: form.ibanDiffere ? null : form.iban,
+          bic: form.ibanDiffere ? null : form.bic,
+          signature,
+          collecteur_id: currentUser?.id,
+          incomplet: form.ibanDiffere ? true : false,
+          rdv_date: form.ibanDiffere && form.rdvDate ? `${form.rdvDate}T${form.rdvHeure||"10:00"}` : null,
+          rdv_note: form.ibanDiffere ? form.rdvNote : null,
+        });
+        setDone(true);
+        setTimeout(() => {
+          onSuccess && onSuccess();
+          setDone(false); setStep(0);
+          setForm({ nom:"", prenom:"", sexe:"", dateNaissance:"", adresse:"", codePostal:"", ville:"", telephone:"", email:"", consentRgpd:false, consentMarketing:false, montantDon:"", iban:"", bic:"", ibanValid:null, rdvDate:"", rdvHeure:"", rdvNote:"", ibanDiffere:false });
+          setSignature(null);
+        }, 2000);
+      } catch(e) { setSubmitError("Erreur : " + e.message); }
+      setSubmitting(false);
+    }
+
+    if (done) return (
+      <div style={{textAlign:"center",padding:"60px 0"}}>
+        <div style={{width:64,height:64,borderRadius:"50%",background:"#dcfce7",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px",fontSize:28,color:"#16a34a"}}>✓</div>
+        <h3 style={{fontFamily:serif,fontSize:26,color:"#1a1a2e",marginBottom:8}}>Dossier enregistré !</h3>
+        <p style={{color:"#6b7280",fontSize:14}}>Retour au tableau de bord…</p>
+      </div>
+    );
+
+    return (
+      <div>
+        {/* Barre de progression */}
+        <div style={{display:"flex",gap:4,marginBottom:24}}>
+          {steps.map((s,i) => (
+            <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
+              <div style={{width:32,height:32,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,background:i<step?"#22c55e":i===step?"#6d28d9":"#e5e7eb",color:i<=step?"white":"#9ca3af"}}>{i<step?"✓":i+1}</div>
+              <span className="step-label" style={{fontSize:9,color:i===step?"#6d28d9":"#9ca3af",fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",textAlign:"center"}}>{s}</span>
             </div>
-            <div style={{ display: "flex", gap: 12 }}>
-              <button onClick={() => exportCSV(filtered)} style={{ padding: "10px 20px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.08)", color: "white", cursor: "pointer", fontFamily: font, fontSize: 13, fontWeight: 600 }}>Exporter CSV</button>
-              <button onClick={load} style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: "rgba(255,255,255,0.12)", color: "white", cursor: "pointer", fontFamily: font, fontSize: 13, fontWeight: 600 }}>Actualiser</button>
-              <button onClick={onClose} style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: "#ef4444", color: "white", cursor: "pointer", fontFamily: font, fontSize: 13, fontWeight: 700 }}>Fermer</button>
+          ))}
+        </div>
+
+        {/* Étape 0 */}
+        {step===0 && (
+          <div>
+            <div className="form-grid-2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
+              <div><label style={lbl}>Nom</label><input style={inputS(!!errors.nom)} value={form.nom} onChange={e=>update("nom",e.target.value)} placeholder="MARTIN"/>{errors.nom&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.nom}</p>}</div>
+              <div><label style={lbl}>Prénom</label><input style={inputS(!!errors.prenom)} value={form.prenom} onChange={e=>update("prenom",e.target.value)} placeholder="Jean"/>{errors.prenom&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.prenom}</p>}</div>
             </div>
-          </div>
 
-          <div style={{ background: "#16142a", padding: "14px 32px", display: "flex", gap: 16, alignItems: "center", flexShrink: 0, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher par nom, email, ville, téléphone..." style={{ flex: 1, padding: "10px 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.05)", color: "white", fontFamily: font, fontSize: 14, outline: "none" }} />
-            <select value={filterDon} onChange={e => setFilterDon(e.target.value)} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)", background: "#1e1b4b", color: "white", fontFamily: font, fontSize: 13, cursor: "pointer", outline: "none" }}>
-              <option value="">Tous les dons</option>
-              <option value="0">Sans don</option>
-              <option value="1">1 € – 25 €</option>
-              <option value="2">26 € – 100 €</option>
-              <option value="3">+ de 100 €</option>
-            </select>
-          </div>
-
-          <div style={{ flex: 1, overflow: "auto", padding: "0 32px 32px" }}>
-            {loading && <div style={{ textAlign: "center", color: "rgba(255,255,255,0.4)", paddingTop: 80, fontSize: 15 }}>Chargement...</div>}
-            {error && <div style={{ background: "#7f1d1d", color: "#fca5a5", padding: 20, borderRadius: 12, margin: "24px 0", fontSize: 13, lineHeight: 1.6 }}>{error}</div>}
-            {!loading && !error && (
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                <thead>
-                  <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
-                    {[["created_at","Date"],["nom","Nom"],["prenom","Prénom"],["email","Email"],["ville","Ville"],["telephone","Téléphone"],["montant_don","Don (€)"],["consent_rgpd","RGPD"]].map(([f,label]) => (
-                      <th key={f} onClick={() => sort(f)} style={thStyle}>{label}<Arrow f={f} /></th>
-                    ))}
-                    <th style={{ ...thStyle, cursor: "default" }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.length === 0 && <tr><td colSpan={9} style={{ textAlign: "center", color: "rgba(255,255,255,0.3)", padding: 60, fontSize: 14 }}>Aucun adhérent trouvé</td></tr>}
-                  {filtered.map((r, i) => (
-                    <tr key={r.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)", background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.02)" }}
-                      onMouseEnter={e => e.currentTarget.style.background = "rgba(124,58,237,0.08)"}
-                      onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.02)"}>
-                      <td style={{ padding: "12px", color: "rgba(255,255,255,0.5)", whiteSpace: "nowrap" }}>{new Date(r.created_at).toLocaleDateString("fr-FR")}</td>
-                      <td style={{ padding: "12px", color: "white", fontWeight: 600 }}>{r.nom}</td>
-                      <td style={{ padding: "12px", color: "rgba(255,255,255,0.8)" }}>{r.prenom}</td>
-                      <td style={{ padding: "12px", color: "rgba(255,255,255,0.7)" }}>{r.email}</td>
-                      <td style={{ padding: "12px", color: "rgba(255,255,255,0.6)" }}>{r.ville}</td>
-                      <td style={{ padding: "12px", color: "rgba(255,255,255,0.6)" }}>{r.telephone}</td>
-                      <td style={{ padding: "12px" }}>{r.montant_don ? <span style={{ background: "#14532d", color: "#86efac", padding: "3px 10px", borderRadius: 20, fontWeight: 700, fontSize: 12 }}>{parseFloat(r.montant_don).toFixed(2)} €</span> : <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 12 }}>—</span>}</td>
-                      <td style={{ padding: "12px" }}><span style={{ fontSize: 12, fontWeight: 700, color: r.consent_rgpd ? "#86efac" : "#f87171" }}>{r.consent_rgpd ? "Accepté" : "Refusé"}</span></td>
-                      <td style={{ padding: "12px", whiteSpace: "nowrap" }}>
-                        <button onClick={() => setSelected(r)} style={{ marginRight: 8, padding: "5px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.15)", background: "transparent", color: "white", cursor: "pointer", fontFamily: font, fontSize: 12 }}>Voir</button>
-                        <button onClick={() => setDelConfirm(r)} style={{ padding: "5px 12px", borderRadius: 8, border: "none", background: "#7f1d1d", color: "#fca5a5", cursor: "pointer", fontFamily: font, fontSize: 12, fontWeight: 600 }}>Suppr.</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-
-          {selected && (
-            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }} onClick={() => setSelected(null)}>
-              <div onClick={e => e.stopPropagation()} style={{ background: "#1a1730", borderRadius: 20, padding: 36, maxWidth: 680, width: "100%", maxHeight: "90vh", overflowY: "auto", border: "1px solid rgba(255,255,255,0.1)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28 }}>
-                  <div>
-                    <h2 style={{ fontFamily: serif, fontSize: 26, color: "white", margin: 0 }}>{selected.prenom} {selected.nom}</h2>
-                    <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, marginTop: 4 }}>Adhérent depuis le {new Date(selected.created_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}</p>
-                  </div>
-                  <button onClick={() => setSelected(null)} style={{ background: "rgba(255,255,255,0.08)", border: "none", color: "white", width: 36, height: 36, borderRadius: "50%", cursor: "pointer", fontSize: 18 }}>✕</button>
-                </div>
+            {/* Sélecteur genre */}
+            <div style={{marginBottom:16}}>
+              <label style={lbl}>Genre <span style={{fontWeight:300,opacity:.5}}>(optionnel)</span></label>
+              <div style={{display:"flex",gap:10}}>
                 {[
-                  { title: "Coordonnées civiles", fields: [["Nom complet", `${selected.prenom} ${selected.nom}`], ["Date de naissance", selected.date_naissance ? new Date(selected.date_naissance).toLocaleDateString("fr-FR") : "—"], ["Adresse", `${selected.adresse}, ${selected.code_postal} ${selected.ville}`], ["Téléphone", selected.telephone], ["Email", selected.email]] },
-                  { title: "Consentements RGPD", fields: [["Politique de confidentialité", selected.consent_rgpd ? "Accepté" : "Refusé"], ["Communications marketing", selected.consent_marketing ? "Accepté" : "Non"]] },
-                  { title: "Don mensuel", fields: [["Montant déclaré", selected.montant_don ? `${parseFloat(selected.montant_don).toFixed(2)} €` : "Non renseigné"], ["Réduction fiscale (66%)", selected.reduction_fiscale ? `${parseFloat(selected.reduction_fiscale).toFixed(2)} €` : "—"], ["Coût réel net", selected.cout_net ? `${parseFloat(selected.cout_net).toFixed(2)} €` : "—"]] },
-                  { title: "Coordonnées bancaires", fields: [["IBAN", selected.iban || "—"], ["BIC / SWIFT", selected.bic || "—"]] },
-                ].map(section => (
-                  <div key={section.title} style={{ marginBottom: 16, background: "rgba(255,255,255,0.04)", borderRadius: 14, padding: "16px 20px" }}>
-                    <h3 style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.35)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 12 }}>{section.title}</h3>
-                    {section.fields.map(([label, value]) => (
-                      <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                        <span style={{ fontSize: 13, color: "rgba(255,255,255,0.45)" }}>{label}</span>
-                        <span style={{ fontSize: 13, color: "white", fontWeight: 500, maxWidth: "60%", textAlign: "right", wordBreak: "break-all" }}>{value || "—"}</span>
-                      </div>
-                    ))}
+                  {val:"M", label:"♂ Masculin",  bg:"#eff6ff", border:"#3b82f6", text:"#1d4ed8", activeBg:"#dbeafe"},
+                  {val:"F", label:"♀ Féminin",   bg:"#fdf2f8", border:"#ec4899", text:"#be185d", activeBg:"#fce7f3"},
+                  {val:"A", label:"⚧ Autre",      bg:"#f9fafb", border:"#9ca3af", text:"#6b7280", activeBg:"#f3f4f6"},
+                ].map(opt => (
+                  <div
+                    key={opt.val}
+                    onClick={()=>update("sexe", form.sexe===opt.val ? "" : opt.val)}
+                    style={{
+                      flex:1, padding:"10px 8px", borderRadius:12, cursor:"pointer", textAlign:"center",
+                      border:`2px solid ${form.sexe===opt.val ? opt.border : "#e5e7eb"}`,
+                      background: form.sexe===opt.val ? opt.activeBg : "white",
+                      transition:"all .15s"
+                    }}
+                  >
+                    <p style={{fontSize:13,fontWeight:700,color:form.sexe===opt.val?opt.text:"#6b7280"}}>{opt.label}</p>
                   </div>
                 ))}
-                {selected.signature && (
-                  <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 14, padding: "16px 20px" }}>
-                    <h3 style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.35)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 12 }}>Signature</h3>
-                    <img src={selected.signature} alt="Signature" style={{ width: "100%", borderRadius: 10, background: "white", padding: 8 }} />
+              </div>
+            </div>
+
+            <div style={{marginBottom:16}}><label style={lbl}>Date de naissance</label><input type="date" style={inputS(!!errors.dateNaissance)} value={form.dateNaissance} onChange={e=>update("dateNaissance",e.target.value)}/>{errors.dateNaissance&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.dateNaissance}</p>}</div>
+            <div style={{marginBottom:16}}><label style={lbl}>Adresse</label><input style={inputS(!!errors.adresse)} value={form.adresse} onChange={e=>update("adresse",e.target.value)} placeholder="12 rue de la Paix"/>{errors.adresse&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.adresse}</p>}</div>
+            <div className="form-grid-cp" style={{display:"grid",gridTemplateColumns:"160px 1fr",gap:16,marginBottom:16}}>
+              <div>
+                <label style={lbl}>Code postal</label>
+                <input style={inputS(!!errors.codePostal)} value={form.codePostal} onChange={e=>update("codePostal",e.target.value)} placeholder="75001" maxLength={5} inputMode="numeric"/>
+                {loadingVille && <p style={{fontSize:11,color:"#9ca3af",marginTop:4}}>Recherche…</p>}
+                {errors.codePostal&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.codePostal}</p>}
+              </div>
+              <div>
+                <label style={lbl}>Ville</label>
+                <div style={{position:"relative"}}>
+                  <input style={inputS(!!errors.ville)} value={form.ville} onChange={e=>update("ville",e.target.value)} placeholder="Paris"/>
+                  {villeSuggestions.length > 0 && (
+                    <div className="ville-dropdown">
+                      {villeSuggestions.map((v,i) => (
+                        <div key={i} className="ville-dropdown-item" onMouseDown={()=>{ setForm(f=>({...f,ville:v})); setVilleSuggestions([]); setErrors(e=>({...e,ville:undefined})); }}>{v}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {errors.ville&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.ville}</p>}
+              </div>
+            </div>
+            <div className="form-grid-2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+              <div>
+                <label style={lbl}>Téléphone</label>
+                <input type="tel" inputMode="numeric" style={inputS(!!errors.telephone)} value={form.telephone} onChange={e=>update("telephone",e.target.value)} placeholder="06 12 34 56 78"/>
+                {errors.telephone&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.telephone}</p>}
+              </div>
+              <div>
+                <label style={lbl}>Email</label>
+                <input type="email" style={inputS(!!errors.email)} value={form.email} onChange={e=>update("email",e.target.value)} placeholder="jean@email.com" autoComplete="off"/>
+                {errors.email&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.email}</p>}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Étape 1 — RGPD */}
+        {step===1 && (
+          <div>
+            <div style={{marginBottom:20}}>
+              <h3 style={{fontSize:16,fontWeight:700,color:"#1a1a2e",marginBottom:4}}>Protection de vos données personnelles</h3>
+              <p style={{fontSize:12,color:"#6b7280",lineHeight:1.6}}>Conformément au Règlement Général sur la Protection des Données (RGPD – UE 2016/679), nous vous informons de l'utilisation de vos données.</p>
+            </div>
+
+            <div style={{background:"#f9fafb",borderRadius:14,padding:"18px 20px",marginBottom:16,border:"1px solid #e5e7eb"}}>
+              <div className="form-grid-2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+                {[
+                  {icon:"🎯",title:"Finalité de la collecte",text:"Gestion de votre adhésion, traitement du prélèvement SEPA mensuel et suivi de votre dossier de donateur."},
+                  {icon:"⚖️",title:"Base légale",text:"Art. 6.1.b RGPD — Exécution d'un contrat. Le traitement est nécessaire à l'exécution de votre adhésion."},
+                  {icon:"🔒",title:"Sécurité & conservation",text:"Vos données sont chiffrées (TLS 1.3) et conservées 3 ans après la fin de votre adhésion, puis archivées 5 ans (obligations légales)."},
+                  {icon:"🚫",title:"Pas de vente de données",text:"Vos données ne sont jamais vendues ni cédées à des tiers à des fins commerciales. Accès strictement limité à notre organisation."},
+                ].map(item => (
+                  <div key={item.title} style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+                    <span style={{fontSize:18,flexShrink:0}}>{item.icon}</span>
+                    <div>
+                      <p style={{fontSize:12,fontWeight:700,color:"#1a1a2e",marginBottom:3}}>{item.title}</p>
+                      <p style={{fontSize:11,color:"#6b7280",lineHeight:1.55}}>{item.text}</p>
+                    </div>
                   </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{background:"#eff6ff",borderRadius:12,padding:"12px 16px",marginBottom:16,border:"1px solid #bfdbfe"}}>
+              <p style={{fontSize:12,color:"#1e40af",fontWeight:600,marginBottom:4}}>Vos droits (Art. 15 à 22 RGPD)</p>
+              <p style={{fontSize:12,color:"#1d4ed8",lineHeight:1.6}}>Vous disposez d'un droit d'<strong>accès</strong>, de <strong>rectification</strong>, d'<strong>effacement</strong>, de <strong>portabilité</strong> et d'<strong>opposition</strong> au traitement de vos données. Pour exercer vos droits : <span style={{fontWeight:700}}>dpo@organisation.fr</span></p>
+            </div>
+
+            <div style={{marginTop:4}}>
+              {[{key:"consentRgpd",required:true,label:"J'ai lu et j'accepte la politique de confidentialité. J'autorise le traitement de mes données personnelles dans le cadre de mon adhésion."},{key:"consentMarketing",required:false,label:"J'accepte de recevoir des communications sur les actualités et les actions de l'organisation. (optionnel)"}].map(({key,required,label}) => (
+                <div key={key} onClick={()=>{setForm(f=>({...f,[key]:!f[key]}));setErrors(e=>({...e,[key]:undefined}));}} style={{display:"flex",gap:14,alignItems:"flex-start",padding:"14px 16px",borderRadius:12,border:`2px solid ${errors[key]?"#f87171":form[key]?"#6d28d9":"#e5e7eb"}`,background:form[key]?"#f5f3ff":"white",cursor:"pointer",marginBottom:10,transition:"all .15s"}}>
+                  <div style={{width:22,height:22,borderRadius:6,border:`2px solid ${form[key]?"#6d28d9":"#d1d5db"}`,background:form[key]?"#6d28d9":"white",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:1}}>{form[key]&&<span style={{color:"white",fontSize:11,fontWeight:700}}>✓</span>}</div>
+                  <p style={{fontSize:13,color:"#374151",lineHeight:1.5,margin:0}}>{label}{required&&<span style={{color:"#ef4444",marginLeft:4}}>*</span>}</p>
+                </div>
+              ))}
+              {errors.consentRgpd&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.consentRgpd}</p>}
+            </div>
+          </div>
+        )}
+
+        {/* Étape 2 */}
+        {step===2 && (
+          <div>
+            <div style={{marginBottom:20}}>
+              <label style={lbl}>Montant du don mensuel (€)</label>
+              <input
+                type="number" min="10" step="0.01"
+                value={form.montantDon}
+                onChange={e=>update("montantDon",e.target.value)}
+                placeholder="Minimum 10 €"
+                style={{...inputS(montant > 0 && montant < 10), fontSize:16}}
+              />
+              {montant > 0 && montant < 10 && (
+                <div style={{marginTop:8,background:"#fef2f2",border:"1px solid #fecaca",borderRadius:10,padding:"10px 14px",display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{fontSize:18}}>⚠️</span>
+                  <p style={{color:"#dc2626",fontSize:13,fontWeight:700}}>Le montant minimum est de <strong>10 €</strong> par mois. Montant saisi : {montant.toFixed(2)} €</p>
+                </div>
+              )}
+            </div>
+            {montant >= 10 && (
+              <div className="form-grid-2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+                <div style={{background:"#f0fdf4",borderRadius:14,padding:"18px 14px",textAlign:"center",border:"1px solid #bbf7d0"}}>
+                  <p style={{fontSize:10,fontWeight:700,color:"#14532d",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>Réduction 66%</p>
+                  <p style={{fontSize:24,fontWeight:700,color:"#16a34a"}}>{defiscalisation} €</p>
+                </div>
+                <div style={{background:"#f0fdf4",borderRadius:14,padding:"18px 14px",textAlign:"center",border:"1px solid #bbf7d0"}}>
+                  <p style={{fontSize:10,fontWeight:700,color:"#14532d",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>Coût réel</p>
+                  <p style={{fontSize:24,fontWeight:700,color:"#16a34a"}}>{netDon} €</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Étape 3 — IBAN + option RDV */}
+        {step===3 && (
+          <div>
+            <div style={{marginBottom:20}}>
+              <h3 style={{fontSize:16,fontWeight:700,color:"#1a1a2e",marginBottom:4}}>Coordonnées bancaires</h3>
+              <p style={{fontSize:12,color:"#6b7280"}}>Saisissez l'IBAN pour le prélèvement SEPA, ou programmez un rappel si l'adhérent ne l'a pas sur lui.</p>
+            </div>
+
+            {/* Toggle IBAN / RDV */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:20}}>
+              <div onClick={()=>update("ibanDiffere",false)} style={{padding:"12px 14px",borderRadius:12,border:`2px solid ${!form.ibanDiffere?"#6d28d9":"#e5e7eb"}`,background:!form.ibanDiffere?"#f5f3ff":"white",cursor:"pointer",textAlign:"center",transition:"all .15s"}}>
+                <div style={{fontSize:20,marginBottom:4}}>🏦</div>
+                <p style={{fontSize:13,fontWeight:700,color:!form.ibanDiffere?"#4c1d95":"#374151"}}>IBAN disponible</p>
+                <p style={{fontSize:11,color:"#9ca3af"}}>Saisir maintenant</p>
+              </div>
+              <div onClick={()=>update("ibanDiffere",true)} style={{padding:"12px 14px",borderRadius:12,border:`2px solid ${form.ibanDiffere?"#f59e0b":"#e5e7eb"}`,background:form.ibanDiffere?"#fffbeb":"white",cursor:"pointer",textAlign:"center",transition:"all .15s"}}>
+                <div style={{fontSize:20,marginBottom:4}}>📅</div>
+                <p style={{fontSize:13,fontWeight:700,color:form.ibanDiffere?"#92400e":"#374151"}}>Rappel à programmer</p>
+                <p style={{fontSize:11,color:"#9ca3af"}}>L'adhérent n'a pas l'IBAN</p>
+              </div>
+            </div>
+
+            {!form.ibanDiffere ? (
+              <div>
+                <div style={{marginBottom:16}}>
+                  <label style={lbl}>IBAN</label>
+                  <div style={{position:"relative"}}>
+                    <input value={form.iban} onChange={e=>update("iban",e.target.value)} placeholder="FR76 3000 6000 0112 3456 7890 189" style={{...inputS(!!errors.iban,form.ibanValid===true),fontFamily:"monospace",letterSpacing:".06em",paddingRight:48}}/>
+                    {form.ibanValid!==null&&<div style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",width:24,height:24,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",background:form.ibanValid?"#dcfce7":"#fee2e2",fontSize:12,fontWeight:700,color:form.ibanValid?"#16a34a":"#ef4444"}}>{form.ibanValid?"✓":"✗"}</div>}
+                  </div>
+                  {form.ibanValid===true&&<p style={{color:"#16a34a",fontSize:12,marginTop:6,fontWeight:600}}>IBAN valide ✓</p>}
+                  {errors.iban&&<p style={{color:"#ef4444",fontSize:12,marginTop:6}}>{errors.iban}</p>}
+                </div>
+                <div>
+                  <label style={lbl}>BIC / SWIFT</label>
+                  <input value={form.bic} onChange={e=>update("bic",e.target.value)} placeholder="BNPAFRPP" style={{...inputS(false,false),fontFamily:"monospace",letterSpacing:".06em"}}/>
+                </div>
+              </div>
+            ) : (
+              <div style={{background:"#fffbeb",borderRadius:14,padding:18,border:"1px solid #fde68a"}}>
+                <p style={{fontSize:13,fontWeight:700,color:"#92400e",marginBottom:14}}>📞 Programmer un rappel téléphonique</p>
+                <div className="form-grid-2 recap-grid-2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+                  <div>
+                    <label style={{...lbl,color:"#78350f"}}>Date du rappel</label>
+                    <input type="date" value={form.rdvDate} onChange={e=>update("rdvDate",e.target.value)} min={new Date().toISOString().split("T")[0]} style={{...inputS(!!errors.rdvDate,false),background:errors.rdvDate?"#fff5f5":"white"}}/>
+                    {errors.rdvDate&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.rdvDate}</p>}
+                  </div>
+                  <div>
+                    <label style={{...lbl,color:"#78350f"}}>Heure</label>
+                    <input type="time" value={form.rdvHeure} onChange={e=>update("rdvHeure",e.target.value)} style={{...inputS(!!errors.rdvHeure,false),background:errors.rdvHeure?"#fff5f5":"white"}}/>
+                    {errors.rdvHeure&&<p style={{color:"#ef4444",fontSize:12,marginTop:4}}>{errors.rdvHeure}</p>}
+                  </div>
+                </div>
+                <div>
+                  <label style={{...lbl,color:"#78350f"}}>Note pour le rappel <span style={{fontWeight:300,opacity:.6}}>(optionnel)</span></label>
+                  <input value={form.rdvNote} onChange={e=>update("rdvNote",e.target.value)} placeholder="Ex : Rappeler en fin de journée, préfère le soir" style={{...inputS(false,false),background:"white"}}/>
+                </div>
+                <div style={{marginTop:12,background:"rgba(251,146,60,.12)",borderRadius:10,padding:"10px 14px"}}>
+                  <p style={{fontSize:11,color:"#92400e",lineHeight:1.6}}>⚠️ Ce dossier sera marqué comme <strong>incomplet</strong> et apparaîtra dans votre liste de rappels sur le tableau de bord.</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Étape 4 — Récap complet */}
+        {step===4 && (
+          <div>
+            {/* Coordonnées complètes */}
+            <div style={{background:"#f9fafb",borderRadius:14,padding:18,border:"1px solid #e5e7eb",marginBottom:12}}>
+              <p style={{fontSize:11,fontWeight:700,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>👤 Coordonnées civiles</p>
+              <div className="recap-cells" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px 24px"}}>
+                {[
+                  ["Nom",form.nom],["Prénom",form.prenom],
+                  ["Genre", form.sexe==="M"?"♂ Masculin":form.sexe==="F"?"♀ Féminin":form.sexe==="A"?"⚧ Autre":"—"],
+                  ["Date de naissance",form.dateNaissance?new Date(form.dateNaissance+"T00:00").toLocaleDateString("fr-FR",{day:"2-digit",month:"long",year:"numeric"}):"—"],
+                  ["Adresse",form.adresse],
+                  ["Code postal",form.codePostal],["Ville",form.ville],
+                  ["Téléphone",form.telephone],["Email",form.email],
+                ].map(([l,v]) => (
+                  <div key={l} style={{padding:"5px 0",borderBottom:"1px solid #f3f4f6"}}><p style={{fontSize:10,color:"#9ca3af",marginBottom:2,fontWeight:700,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:13,color:"#1a1a2e",fontWeight:500}}>{v||"—"}</p></div>
+                ))}
+              </div>
+            </div>
+
+            {/* RGPD */}
+            <div style={{background:"#f9fafb",borderRadius:14,padding:18,border:"1px solid #e5e7eb",marginBottom:12}}>
+              <p style={{fontSize:11,fontWeight:700,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>🔒 Consentements RGPD</p>
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                {[["Politique de confidentialité",form.consentRgpd],["Communications marketing",form.consentMarketing]].map(([l,v]) => (
+                  <div key={l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid #f3f4f6"}}>
+                    <span style={{fontSize:12,color:"#4b5563"}}>{l}</span>
+                    <span style={{fontSize:12,fontWeight:700,padding:"2px 10px",borderRadius:20,background:v?"#dcfce7":"#f3f4f6",color:v?"#16a34a":"#9ca3af"}}>{v?"Accepté":"Refusé"}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Don */}
+            <div className="form-grid-2 recap-grid-2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+              <div style={{background:"#f9fafb",borderRadius:14,padding:18,border:"1px solid #e5e7eb"}}>
+                <p style={{fontSize:11,fontWeight:700,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>💸 Don mensuel</p>
+                {[
+                  ["Montant",form.montantDon?`${parseFloat(form.montantDon).toFixed(2)} €`:"Non renseigné"],
+                  ["Réduction 66%",form.montantDon?`${defiscalisation} €`:"—"],
+                  ["Coût réel net",form.montantDon?`${netDon} €`:"—"],
+                ].map(([l,v]) => (
+                  <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #f3f4f6"}}><span style={{fontSize:12,color:"#6b7280"}}>{l}</span><span style={{fontSize:12,fontWeight:700,color:"#1a1a2e"}}>{v}</span></div>
+                ))}
+              </div>
+
+              {/* Bancaire ou RDV */}
+              <div style={{background: form.ibanDiffere?"#fffbeb":"#f9fafb",borderRadius:14,padding:18,border:`1px solid ${form.ibanDiffere?"#fde68a":"#e5e7eb"}`}}>
+                {form.ibanDiffere ? (
+                  <>
+                    <p style={{fontSize:11,fontWeight:700,color:"#92400e",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>📅 Rappel programmé</p>
+                    {[
+                      ["Date",form.rdvDate?new Date(form.rdvDate+"T00:00").toLocaleDateString("fr-FR",{day:"2-digit",month:"long",year:"numeric"}):"—"],
+                      ["Heure",form.rdvHeure||"—"],
+                      ["Note",form.rdvNote||"—"],
+                    ].map(([l,v]) => (
+                      <div key={l} style={{padding:"5px 0",borderBottom:"1px solid #fde68a"}}><p style={{fontSize:10,color:"#d97706",marginBottom:2,fontWeight:700,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:12,color:"#78350f",fontWeight:500}}>{v}</p></div>
+                    ))}
+                  </>
+                ) : (
+                  <>
+                    <p style={{fontSize:11,fontWeight:700,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>🏦 Coordonnées bancaires</p>
+                    {[["IBAN",form.iban],["BIC",form.bic]].map(([l,v]) => (
+                      <div key={l} style={{padding:"5px 0",borderBottom:"1px solid #f3f4f6"}}><p style={{fontSize:10,color:"#9ca3af",marginBottom:2,fontWeight:700,textTransform:"uppercase"}}>{l}</p><p style={{fontSize:12,color:"#1a1a2e",fontFamily:"monospace"}}>{v||"—"}</p></div>
+                    ))}
+                  </>
                 )}
               </div>
             </div>
-          )}
 
-          {delConfirm && (
-            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <div style={{ background: "#1a1730", borderRadius: 18, padding: 36, maxWidth: 400, width: "90%", textAlign: "center", border: "1px solid #7f1d1d" }}>
-                <h3 style={{ color: "white", fontFamily: serif, fontSize: 22, marginBottom: 12 }}>Supprimer ce dossier ?</h3>
-                <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 14, marginBottom: 28 }}>Le dossier de <strong style={{ color: "white" }}>{delConfirm.prenom} {delConfirm.nom}</strong> sera définitivement supprimé.</p>
-                <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-                  <button onClick={() => setDelConfirm(null)} style={{ padding: "11px 24px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.2)", background: "transparent", color: "white", cursor: "pointer", fontFamily: font, fontWeight: 600 }}>Annuler</button>
-                  <button onClick={() => handleDelete(delConfirm.id)} style={{ padding: "11px 24px", borderRadius: 10, border: "none", background: "#ef4444", color: "white", cursor: "pointer", fontFamily: font, fontWeight: 700 }}>Supprimer définitivement</button>
-                </div>
+            {/* Signature */}
+            <div style={{marginBottom:16}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                <p style={{fontSize:14,fontWeight:700,color:"#1a1a2e"}}>✍️ Signature de l'adhérent</p>
+                <button onClick={clearSignature} style={{fontSize:12,color:"#6d28d9",background:"#f5f3ff",border:"1px solid #ddd6fe",padding:"6px 16px",borderRadius:20,cursor:"pointer",fontFamily:font,fontWeight:600}}>🗑 Effacer</button>
               </div>
+              {/* Cadre de signature */}
+              <div style={{border:"2px solid #c4b5fd",borderRadius:14,overflow:"hidden",background:"white",boxShadow:"0 4px 20px rgba(109,40,217,0.12)",position:"relative"}}>
+                {/* Ligne de base */}
+                <div style={{position:"absolute",bottom:44,left:20,right:20,borderBottom:"1px dashed #d1d5db",pointerEvents:"none",zIndex:1}}/>
+                {/* Texte X */}
+                <div style={{position:"absolute",bottom:32,left:20,color:"#9ca3af",fontSize:18,pointerEvents:"none",zIndex:1,lineHeight:1}}>✕</div>
+                {/* Placeholder */}
+                {!signature && (
+                  <div style={{position:"absolute",top:"40%",left:"50%",transform:"translate(-50%,-50%)",color:"#d1d5db",fontSize:13,pointerEvents:"none",fontStyle:"italic",zIndex:1,textAlign:"center",userSelect:"none"}}>
+                    Signez ici
+                  </div>
+                )}
+                <canvas
+                  ref={canvasRef}
+                  width={800} height={200}
+                  style={{width:"100%",height:200,display:"block",cursor:"crosshair",touchAction:"none"}}
+                  onMouseDown={startDraw} onMouseMove={draw} onMouseUp={endDraw} onMouseLeave={endDraw}
+                  onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={endDraw}
+                />
+              </div>
+              {!signature && <p style={{fontSize:11,color:"#9ca3af",marginTop:6,textAlign:"center",fontStyle:"italic"}}>Utilisez votre doigt ou la souris pour signer dans le cadre</p>}
+              {signature && <p style={{fontSize:11,color:"#16a34a",marginTop:6,textAlign:"center",fontWeight:600}}>✓ Signature enregistrée</p>}
             </div>
-          )}
+            {submitError&&<div style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:10,padding:"12px 16px",marginBottom:12,color:"#991b1b",fontSize:13}}>{submitError}</div>}
+            <button onClick={handleSubmit} disabled={submitting} style={{width:"100%",padding:"16px",borderRadius:14,border:"none",background:submitting?"#9ca3af":"linear-gradient(135deg,#1e1b4b,#6d28d9)",color:"white",fontSize:15,fontWeight:700,cursor:submitting?"not-allowed":"pointer",fontFamily:font,boxShadow:"0 6px 24px rgba(76,29,149,.4)"}}>
+              {submitting?"Enregistrement…":"Valider et soumettre le dossier ✓"}
+            </button>
+          </div>
+        )}
+
+        {/* Nav */}
+        <div style={{display:"flex",justifyContent:"space-between",marginTop:28,paddingTop:20,borderTop:"1px solid #f3f4f6"}}>
+          <button onClick={prev} disabled={step===0} style={{padding:"11px 24px",borderRadius:11,border:"2px solid #e5e7eb",background:step===0?"#f9fafb":"white",color:step===0?"#d1d5db":"#374151",fontSize:13,fontWeight:600,cursor:step===0?"not-allowed":"pointer",fontFamily:font}}>Précédent</button>
+          <span style={{fontSize:12,color:"#9ca3af",alignSelf:"center"}}>Étape {step+1}/{steps.length}</span>
+          {step<steps.length-1&&<button onClick={next} style={{padding:"11px 28px",borderRadius:11,border:"none",background:"linear-gradient(135deg,#4c1d95,#6d28d9)",color:"white",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:font,boxShadow:"0 4px 16px rgba(76,29,149,.35)"}}>Suivant</button>}
         </div>
-      );
+      </div>
+    );
+  }
+
+  // ── COMPLETION PANEL — Finalisation RIB ──────────────────────────
+  function CompletionPanel({ adherent, onSuccess, onCancel }) {
+    const [iban, setIban]           = useState("");
+    const [bic, setBic]             = useState("");
+    const [ibanValid, setIbanValid] = useState(null);
+    const [error, setError]         = useState(null);
+    const [submitting, setSubmitting] = useState(false);
+    const [done, setDone]           = useState(false);
+
+    function updateIban(v) {
+      setIban(v);
+      setIbanValid(isIBANComplete(v) ? validateIBAN(v) : null);
+      setError(null);
     }
 
-    // ============================================================
-    //  LOGIN CRM
-    // ============================================================
-    function CRMLogin({ onSuccess, onCancel }) {
-      const [pwd, setPwd] = useState("");
-      const [err, setErr] = useState(false);
-      function submit() {
-        if (pwd === CRM_PASSWORD) onSuccess();
-        else { setErr(true); setTimeout(() => setErr(false), 2000); }
-      }
-      return (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: font }}>
-          <div style={{ background: "#1a1730", borderRadius: 20, padding: 48, maxWidth: 380, width: "90%", textAlign: "center", border: "1px solid rgba(255,255,255,0.1)" }}>
-            <h2 style={{ fontFamily: serif, fontSize: 26, color: "white", marginBottom: 6 }}>Accès CRM</h2>
-            <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, marginBottom: 28 }}>Entrez le mot de passe administrateur</p>
-            <input type="password" value={pwd} onChange={e => setPwd(e.target.value)} onKeyDown={e => e.key === "Enter" && submit()} placeholder="Mot de passe" style={{ width: "100%", padding: "14px 18px", borderRadius: 12, border: `2px solid ${err ? "#ef4444" : "rgba(255,255,255,0.1)"}`, background: "rgba(255,255,255,0.06)", color: "white", fontFamily: font, fontSize: 15, outline: "none", marginBottom: 16 }} />
-            {err && <p style={{ color: "#f87171", fontSize: 13, marginBottom: 12 }}>Mot de passe incorrect</p>}
-            <button onClick={submit} style={{ width: "100%", padding: "14px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#4c1d95,#6d28d9)", color: "white", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: font, marginBottom: 12 }}>Accéder au CRM</button>
-            <button onClick={onCancel} style={{ width: "100%", padding: "10px", borderRadius: 12, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "rgba(255,255,255,0.5)", fontSize: 13, cursor: "pointer", fontFamily: font }}>Annuler</button>
-          </div>
-        </div>
-      );
+    async function handleSubmit() {
+      if (!iban.trim()) { setError("L'IBAN est requis."); return; }
+      if (ibanValid === false) { setError("IBAN invalide — vérifiez les chiffres."); return; }
+      if (ibanValid === null)  { setError("IBAN incomplet."); return; }
+      setSubmitting(true); setError(null);
+      try {
+        // On ne touche PAS à la signature — elle appartient à l'adhérent
+        await supabaseUpdate("adherents", adherent.id, {
+          iban,
+          bic,
+          incomplet: false,
+          rdv_date: null,
+          rdv_note: null,
+        });
+        setDone(true);
+        setTimeout(() => onSuccess(), 1800);
+      } catch(e) { setError("Erreur : " + e.message); }
+      setSubmitting(false);
     }
 
-    // ============================================================
-    //  APP PRINCIPALE
-    // ============================================================
-    function App() {
-      const [view, setView] = useState("form");
-      const [step, setStep] = useState(0);
-      const [submitting, setSubmitting] = useState(false);
-      const [submitSuccess, setSubmitSuccess] = useState(false);
-      const [offlineQueued, setOfflineQueued] = useState(false);
-      const [submitError, setSubmitError] = useState(null);
-      const [form, setForm] = useState({ nom: "", prenom: "", dateNaissance: "", adresse: "", codePostal: "", ville: "", telephone: "", email: "", consentRgpd: false, consentMarketing: false, montantDon: "", iban: "", bic: "", ibanValid: null });
-      const [signature, setSignature] = useState(null);
-      const canvasRef = useRef(null);
-      const [drawing, setDrawing] = useState(false);
-      const [errors, setErrors] = useState({});
+    const inputS = (err, ok) => ({ border:`2px solid ${err?"#f87171":ok?"#22c55e":"#e2e8f0"}`, borderRadius:14, padding:"13px 16px", width:"100%", outline:"none", fontSize:14, fontFamily:font, background:err?"#fff5f5":ok?"#f0fdf4":"white", color:"#1a1a2e", boxSizing:"border-box" });
+    const lbl = { fontSize:11, fontWeight:700, color:"#6b7280", display:"block", marginBottom:6, letterSpacing:".08em", textTransform:"uppercase" };
+    const fmtDate = s => s ? new Date(s+"T00:00").toLocaleDateString("fr-FR",{day:"2-digit",month:"long",year:"numeric"}) : "—";
 
-      const montant = parseFloat(form.montantDon) || 0;
-      const defiscalisation = (montant * 0.66).toFixed(2);
-      const netDon = (montant * 0.34).toFixed(2);
+    if (done) return (
+      <div style={{textAlign:"center",padding:"60px 0"}}>
+        <div style={{width:64,height:64,borderRadius:"50%",background:"#dcfce7",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px",fontSize:28,color:"#16a34a"}}>✓</div>
+        <h3 style={{fontFamily:serif,fontSize:26,color:"#1a1a2e",marginBottom:8}}>Adhésion finalisée !</h3>
+        <p style={{color:"#6b7280",fontSize:14}}>Le RIB est enregistré — l'adhérent est maintenant actif.</p>
+      </div>
+    );
 
-      function update(field, value) {
-        if (field === "iban") {
-          const c = value.replace(/\s/g, "").toUpperCase();
-          const complete = isIBANComplete(value);
-          setForm(f => ({ ...f, iban: value, ibanValid: complete ? validateIBAN(c) : null }));
-        } else {
-          setForm(f => ({ ...f, [field]: value }));
-        }
-        setErrors(e => ({ ...e, [field]: undefined }));
-      }
-
-      useEffect(() => {
-        if (step === 4 && canvasRef.current) {
-          const ctx = canvasRef.current.getContext("2d");
-          ctx.strokeStyle = "#1a1a2e"; ctx.lineWidth = 2.5; ctx.lineCap = "round"; ctx.lineJoin = "round";
-        }
-      }, [step]);
-
-      function getPos(e, canvas) {
-        const rect = canvas.getBoundingClientRect();
-        const sx = canvas.width / rect.width; const sy = canvas.height / rect.height;
-        const cx = e.touches ? e.touches[0].clientX : e.clientX;
-        const cy = e.touches ? e.touches[0].clientY : e.clientY;
-        return { x: (cx - rect.left) * sx, y: (cy - rect.top) * sy };
-      }
-
-      function startDraw(e) { e.preventDefault(); const cv = canvasRef.current; const ctx = cv.getContext("2d"); const p = getPos(e, cv); ctx.beginPath(); ctx.moveTo(p.x, p.y); setDrawing(true); }
-      function draw(e) { e.preventDefault(); if (!drawing) return; const cv = canvasRef.current; const ctx = cv.getContext("2d"); const p = getPos(e, cv); ctx.lineTo(p.x, p.y); ctx.stroke(); }
-      function endDraw(e) { e.preventDefault(); setDrawing(false); setSignature(canvasRef.current.toDataURL()); }
-      function clearSignature() { canvasRef.current.getContext("2d").clearRect(0, 0, 700, 200); setSignature(null); }
-
-      function validateStep() {
-        const errs = {};
-        if (step === 0) {
-          if (!form.nom.trim()) errs.nom = "Ce champ est requis";
-          if (!form.prenom.trim()) errs.prenom = "Ce champ est requis";
-          if (!form.dateNaissance) errs.dateNaissance = "Ce champ est requis";
-          if (!form.adresse.trim()) errs.adresse = "Ce champ est requis";
-          if (!form.codePostal.trim()) errs.codePostal = "Ce champ est requis";
-          if (!form.ville.trim()) errs.ville = "Ce champ est requis";
-          if (!form.telephone.trim()) errs.telephone = "Ce champ est requis";
-          if (!form.email.trim() || !form.email.includes("@")) errs.email = "Adresse email invalide";
-        }
-        if (step === 1 && !form.consentRgpd) errs.consentRgpd = "Vous devez accepter la politique de confidentialité pour continuer";
-        if (step === 3) {
-          if (!form.iban.trim()) errs.iban = "Ce champ est requis";
-          else if (form.ibanValid === false) errs.iban = "L'IBAN saisi est invalide";
-          else if (form.ibanValid === null) errs.iban = "Veuillez saisir l'IBAN complet";
-        }
-        setErrors(errs);
-        return Object.keys(errs).length === 0;
-      }
-
-      function next() { if (validateStep()) setStep(s => s + 1); }
-      function prev() { setStep(s => s - 1); }
-
-      async function handleSubmit() {
-        if (!signature) { alert("Veuillez apposer votre signature avant de valider."); return; }
-        setSubmitting(true); setSubmitError(null);
-        try {
-          const result = await supabaseInsert("adherents", {
-            nom: form.nom, prenom: form.prenom, date_naissance: form.dateNaissance,
-            adresse: form.adresse, code_postal: form.codePostal, ville: form.ville,
-            telephone: form.telephone, email: form.email,
-            consent_rgpd: form.consentRgpd, consent_marketing: form.consentMarketing,
-            montant_don: form.montantDon ? parseFloat(form.montantDon) : null,
-            reduction_fiscale: form.montantDon ? parseFloat(defiscalisation) : null,
-            cout_net: form.montantDon ? parseFloat(netDon) : null,
-            iban: form.iban, bic: form.bic, signature,
-          });
-          // Vérifier si le dossier est en attente de sync (mode hors-ligne)
-          const isOffline = result && result[0] && result[0]._offline === true;
-          setOfflineQueued(isOffline);
-          setSubmitSuccess(true);
-        } catch (e) {
-          setSubmitError("Erreur lors de l'envoi : " + e.message);
-        }
-        setSubmitting(false);
-      }
-
-      function resetForm() {
-        setSubmitSuccess(false); setOfflineQueued(false); setStep(0);
-        setForm({ nom: "", prenom: "", dateNaissance: "", adresse: "", codePostal: "", ville: "", telephone: "", email: "", consentRgpd: false, consentMarketing: false, montantDon: "", iban: "", bic: "", ibanValid: null });
-        setSignature(null); setErrors({});
-      }
-
-      if (submitSuccess) return (
-        <div style={{ fontFamily: font, minHeight: "100vh", background: "linear-gradient(160deg,#1e1b4b,#4c1d95,#6d28d9)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ background: "#fafaf9", borderRadius: 28, padding: "56px 48px", textAlign: "center", maxWidth: 480, width: "90%" }}>
-            <div style={{ width: 72, height: 72, borderRadius: "50%", background: offlineQueued ? "#fef3c7" : "#dcfce7", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px", fontSize: 32 }}>{offlineQueued ? "⏳" : "✓"}</div>
-            <h2 style={{ fontFamily: serif, fontSize: 30, color: "#1a1a2e", marginBottom: 12 }}>{offlineQueued ? "Dossier enregistré localement" : "Dossier soumis avec succès"}</h2>
-            <p style={{ color: "#6b7280", fontSize: 15, lineHeight: 1.6, marginBottom: offlineQueued ? 16 : 32 }}>{offlineQueued ? "Vous êtes actuellement hors-ligne. Le dossier de " : "Votre adhésion a bien été enregistrée. Vous recevrez une confirmation à l'adresse "}<strong>{offlineQueued ? `${form.prenom} ${form.nom}` : form.email}</strong>{offlineQueued ? " a été sauvegardé et sera automatiquement envoyé dès le retour de la connexion internet." : "."}</p>
-            {offlineQueued && <div style={{ background: "#fef9c3", border: "1px solid #fde68a", borderRadius: 14, padding: "12px 18px", marginBottom: 32, display: "flex", alignItems: "center", gap: 10 }}><span style={{ fontSize: 18 }}>📵</span><span style={{ fontSize: 13, color: "#92400e", fontWeight: 600, textAlign: "left" }}>Synchronisation automatique au retour de la connexion</span></div>}
-            <button onClick={resetForm} style={{ padding: "14px 32px", borderRadius: 14, border: "none", background: "linear-gradient(135deg,#4c1d95,#6d28d9)", color: "white", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: font }}>Nouveau dossier</button>
+    return (
+      <div>
+        {/* En-tête identité */}
+        <div style={{background:"linear-gradient(135deg,#1e1b4b,#4c1d95)",borderRadius:16,padding:"20px 24px",marginBottom:20,color:"white"}}>
+          <div style={{display:"flex",alignItems:"center",gap:14}}>
+            <div style={{width:48,height:48,borderRadius:14,background:"rgba(255,255,255,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>👤</div>
+            <div>
+              <h2 style={{fontFamily:serif,fontSize:22,fontWeight:600,marginBottom:2}}>{adherent.prenom} {adherent.nom}</h2>
+              <p style={{fontSize:12,opacity:.7}}>Né(e) le {fmtDate(adherent.date_naissance)} · {adherent.ville}</p>
+            </div>
+            {adherent.montant_don && <div style={{marginLeft:"auto",textAlign:"right"}}>
+              <p style={{fontSize:20,fontWeight:700,color:"#34d399"}}>{parseFloat(adherent.montant_don).toFixed(2)} €</p>
+              <p style={{fontSize:10,opacity:.6,textTransform:"uppercase",letterSpacing:".06em"}}>don mensuel</p>
+            </div>}
           </div>
         </div>
-      );
 
-      return (
-        <div style={{ fontFamily: font, minHeight: "100vh", background: "linear-gradient(160deg,#1e1b4b 0%,#4c1d95 50%,#6d28d9 100%)" }}>
-          {view === "crm-login" && <CRMLogin onSuccess={() => setView("crm")} onCancel={() => setView("form")} />}
-          {view === "crm" && <CRM onClose={() => setView("form")} />}
-
-          <div style={{ maxWidth: 820, margin: "0 auto", padding: "36px 20px 60px" }}>
-            <div style={{ textAlign: "center", marginBottom: 40, position: "relative" }}>
-              <h1 style={{ fontFamily: serif, fontSize: 42, color: "white", marginBottom: 8, fontWeight: 600 }}>Formulaire d'adhésion</h1>
-              <p style={{ color: "rgba(255,255,255,0.6)", fontSize: 15, fontWeight: 300 }}>Remplissez chaque étape pour finaliser votre dossier d'adhésion</p>
-              <div style={{ position: "absolute", right: 0, top: 4, display: "flex", gap: 8 }}>
-                <a href="dashboard.html" style={{ padding: "8px 16px", borderRadius: 20, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.7)", cursor: "pointer", fontFamily: font, fontSize: 12, fontWeight: 600, textDecoration: "none" }}>🏠 Tableau de bord</a>
-                <a href="register.html" style={{ padding: "8px 16px", borderRadius: 20, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.7)", cursor: "pointer", fontFamily: font, fontSize: 12, fontWeight: 600, textDecoration: "none" }}>Créer un compte</a>
-                <button onClick={() => setView("crm-login")} style={{ padding: "8px 18px", borderRadius: 20, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.7)", cursor: "pointer", fontFamily: font, fontSize: 12, fontWeight: 600 }}>Accès CRM</button>
-                <a href="admin.html" style={{ padding: "8px 16px", borderRadius: 20, border: "1px solid rgba(124,58,237,.5)", background: "rgba(124,58,237,.2)", color: "#c4b5fd", cursor: "pointer", fontFamily: font, fontSize: 12, fontWeight: 700, textDecoration: "none" }}>⚙️ Admin</a>
-              </div>
-            </div>
-
-            <div style={{ display: "flex", gap: 6, marginBottom: 32 }}>
-              {steps.map((s, i) => (
-                <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-                  <div style={{ width: 40, height: 40, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, transition: "all 0.3s", background: i < step ? "#22c55e" : i === step ? "white" : "rgba(255,255,255,0.12)", color: i < step ? "white" : i === step ? "#4c1d95" : "rgba(255,255,255,0.45)", boxShadow: i === step ? "0 0 0 4px rgba(255,255,255,0.2)" : "none" }}>{i < step ? "✓" : i + 1}</div>
-                  <span style={{ fontSize: 10, color: i === step ? "white" : "rgba(255,255,255,0.4)", fontWeight: i === step ? 600 : 400, textAlign: "center", lineHeight: 1.3, letterSpacing: "0.04em", textTransform: "uppercase" }}>{s}</span>
+        {/* Récap fiche */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:20}}>
+          {[
+            {title:"📍 Adresse",     items:[["Adresse",adherent.adresse],["CP / Ville",`${adherent.code_postal||""} ${adherent.ville||""}`]]},
+            {title:"📞 Contact",     items:[["Téléphone",adherent.telephone],["Email",adherent.email]]},
+            {title:"🔒 RGPD",        items:[["Confidentialité",adherent.consent_rgpd?"✅ Accepté":"❌ Refusé"],["Marketing",adherent.consent_marketing?"✅ Accepté":"—"]]},
+            {title:"💸 Don mensuel", items:[["Montant",adherent.montant_don?`${parseFloat(adherent.montant_don).toFixed(2)} €`:"—"],["Coût net",adherent.cout_net?`${parseFloat(adherent.cout_net).toFixed(2)} €`:"—"]]},
+          ].map(sec => (
+            <div key={sec.title} style={{background:"#f9fafb",borderRadius:12,padding:"14px 16px",border:"1px solid #e5e7eb"}}>
+              <p style={{fontSize:10,fontWeight:700,color:"#9ca3af",textTransform:"uppercase",letterSpacing:".08em",marginBottom:10}}>{sec.title}</p>
+              {sec.items.map(([l,v]) => (
+                <div key={l} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",borderBottom:"1px solid #f3f4f6"}}>
+                  <span style={{fontSize:12,color:"#6b7280"}}>{l}</span>
+                  <span style={{fontSize:12,fontWeight:600,color:"#1a1a2e",textAlign:"right",maxWidth:"60%",wordBreak:"break-all"}}>{v||"—"}</span>
                 </div>
               ))}
             </div>
+          ))}
+        </div>
 
-            <div style={{ height: 4, background: "rgba(255,255,255,0.1)", borderRadius: 4, marginBottom: 32, overflow: "hidden" }}>
-              <div style={{ height: "100%", width: `${(step / (steps.length - 1)) * 100}%`, background: "linear-gradient(90deg,#22c55e,#86efac)", borderRadius: 4, transition: "width 0.4s ease" }} />
+        {/* Signature originale — lecture seule, non modifiable */}
+        {adherent.signature && (
+          <div style={{background:"#f9fafb",borderRadius:14,padding:"16px 18px",marginBottom:20,border:"1px solid #e5e7eb"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+              <span style={{fontSize:14}}>✍️</span>
+              <p style={{fontSize:12,fontWeight:700,color:"#374151"}}>Signature de l'adhérent</p>
+              <span style={{fontSize:11,padding:"2px 10px",borderRadius:20,background:"#dcfce7",color:"#16a34a",fontWeight:700,marginLeft:"auto"}}>✓ Enregistrée</span>
             </div>
+            <img src={adherent.signature} alt="Signature" style={{width:"100%",borderRadius:8,background:"white",padding:8,border:"1px solid #e5e7eb",maxHeight:100,objectFit:"contain"}}/>
+            <p style={{fontSize:11,color:"#9ca3af",marginTop:6,fontStyle:"italic"}}>Signature recueillie lors de l'entretien — elle ne peut pas être modifiée par le recruteur.</p>
+          </div>
+        )}
 
-            <div style={{ background: "#fafaf9", borderRadius: 28, padding: "44px 48px", boxShadow: "0 32px 80px rgba(0,0,0,0.35)", minHeight: 560 }}>
-
-              {step === 0 && (
-                <div>
-                  <div style={{ marginBottom: 36 }}><h2 style={{ fontFamily: serif, fontSize: 32, color: "#1a1a2e", marginBottom: 6, fontWeight: 600 }}>Coordonnées civiles</h2><p style={{ color: "#9ca3af", fontSize: 14 }}>Informations personnelles de l'adhérent</p></div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
-                    <div><label style={lbl}>Nom</label><input style={inputStyle(!!errors.nom)} value={form.nom} onChange={e => update("nom", e.target.value)} placeholder="MARTIN" />{errors.nom && <p style={{ color: "#ef4444", fontSize: 12, marginTop: 5 }}>{errors.nom}</p>}</div>
-                    <div><label style={lbl}>Prénom</label><input style={inputStyle(!!errors.prenom)} value={form.prenom} onChange={e => update("prenom", e.target.value)} placeholder="Jean" />{errors.prenom && <p style={{ color: "#ef4444", fontSize: 12, marginTop: 5 }}>{errors.prenom}</p>}</div>
-                  </div>
-                  <div style={{ marginBottom: 20 }}><label style={lbl}>Date de naissance</label><input type="date" style={inputStyle(!!errors.dateNaissance)} value={form.dateNaissance} onChange={e => update("dateNaissance", e.target.value)} />{errors.dateNaissance && <p style={{ color: "#ef4444", fontSize: 12, marginTop: 5 }}>{errors.dateNaissance}</p>}</div>
-                  <div style={{ marginBottom: 20 }}><label style={lbl}>Adresse postale</label><input style={inputStyle(!!errors.adresse)} value={form.adresse} onChange={e => update("adresse", e.target.value)} placeholder="12 rue de la Paix" />{errors.adresse && <p style={{ color: "#ef4444", fontSize: 12, marginTop: 5 }}>{errors.adresse}</p>}</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: 20, marginBottom: 20 }}>
-                    <div><label style={lbl}>Code postal</label><input style={inputStyle(!!errors.codePostal)} value={form.codePostal} onChange={e => update("codePostal", e.target.value)} placeholder="75001" maxLength={10} />{errors.codePostal && <p style={{ color: "#ef4444", fontSize: 12, marginTop: 5 }}>{errors.codePostal}</p>}</div>
-                    <div><label style={lbl}>Ville</label><input style={inputStyle(!!errors.ville)} value={form.ville} onChange={e => update("ville", e.target.value)} placeholder="Paris" />{errors.ville && <p style={{ color: "#ef4444", fontSize: 12, marginTop: 5 }}>{errors.ville}</p>}</div>
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-                    <div><label style={lbl}>Numéro de téléphone</label><input type="tel" style={inputStyle(!!errors.telephone)} value={form.telephone} onChange={e => update("telephone", e.target.value)} placeholder="06 12 34 56 78" />{errors.telephone && <p style={{ color: "#ef4444", fontSize: 12, marginTop: 5 }}>{errors.telephone}</p>}</div>
-                    <div><label style={lbl}>Adresse email</label><input type="email" style={inputStyle(!!errors.email)} value={form.email} onChange={e => update("email", e.target.value)} placeholder="jean.martin@email.com" />{errors.email && <p style={{ color: "#ef4444", fontSize: 12, marginTop: 5 }}>{errors.email}</p>}</div>
-                  </div>
-                </div>
-              )}
-
-              {step === 1 && (
-                <div>
-                  <div style={{ marginBottom: 36 }}><h2 style={{ fontFamily: serif, fontSize: 32, color: "#1a1a2e", marginBottom: 6, fontWeight: 600 }}>Protection des données personnelles</h2><p style={{ color: "#9ca3af", fontSize: 14 }}>Conformément au RGPD — UE 2016/679</p></div>
-                  <div style={{ background: "white", borderRadius: 18, padding: 28, marginBottom: 28, border: "1px solid #e5e7eb", maxHeight: 280, overflowY: "auto", lineHeight: 1.8 }}>
-                    <h3 style={{ fontSize: 15, fontWeight: 700, color: "#1a1a2e", marginBottom: 14 }}>Politique de confidentialité</h3>
-                    <p style={{ fontSize: 13, color: "#4b5563", marginBottom: 14 }}>Dans le cadre de votre adhésion, nous collectons et traitons vos données personnelles (nom, prénom, date de naissance, adresse postale, numéro de téléphone, adresse email, coordonnées bancaires) pour les finalités suivantes : gestion de votre adhésion, exécution du contrat, traitement des prélèvements et communication relative à nos services.</p>
-                    <p style={{ fontSize: 13, color: "#4b5563", marginBottom: 14 }}><strong>Base légale :</strong> Le traitement est fondé sur l'exécution du contrat d'adhésion (Art. 6.1.b RGPD) pour les données nécessaires à la gestion de votre compte, et sur votre consentement explicite (Art. 6.1.a RGPD) pour les communications optionnelles.</p>
-                    <p style={{ fontSize: 13, color: "#4b5563", marginBottom: 14 }}><strong>Destinataires :</strong> Vos données sont traitées par notre organisation et ses prestataires techniques, soumis à des obligations contractuelles strictes de confidentialité. Elles ne sont jamais vendues à des tiers.</p>
-                    <p style={{ fontSize: 13, color: "#4b5563", marginBottom: 14 }}><strong>Durée de conservation :</strong> Vos données sont conservées pendant toute la durée de votre adhésion, puis à compter de la fin du contrat conformément aux obligations légales en vigueur.</p>
-                    <p style={{ fontSize: 13, color: "#4b5563", marginBottom: 14 }}><strong>Vos droits :</strong> Conformément au RGPD, vous disposez d'un droit d'accès, de rectification, d'effacement, de limitation, de portabilité et d'opposition. Écrivez à dpo@organisation.fr ou introduisez une réclamation auprès de la CNIL (www.cnil.fr).</p>
-                    <p style={{ fontSize: 13, color: "#4b5563" }}><strong>Sécurité :</strong> Nous mettons en oeuvre des mesures techniques appropriées pour garantir la confidentialité de vos données, notamment le chiffrement des données bancaires conformément aux normes PCI-DSS.</p>
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                    {[{ key: "consentRgpd", required: true, label: "J'ai lu et j'accepte la politique de confidentialité. J'accepte que mes données personnelles soient traitées dans le cadre de la gestion de mon adhésion." }, { key: "consentMarketing", required: false, label: "J'accepte de recevoir des communications par email et SMS concernant les actualités et services de l'organisation. (optionnel)" }].map(({ key, required, label }) => (
-                      <div key={key} onClick={() => { setForm(f => ({ ...f, [key]: !f[key] })); setErrors(e => ({ ...e, [key]: undefined })); }} style={{ display: "flex", gap: 16, alignItems: "flex-start", padding: "18px 20px", borderRadius: 14, border: `2px solid ${errors[key] ? "#f87171" : form[key] ? "#6d28d9" : "#e5e7eb"}`, background: form[key] ? "#f5f3ff" : "white", cursor: "pointer", transition: "all 0.2s" }}>
-                        <div style={{ width: 24, height: 24, borderRadius: 7, border: `2px solid ${form[key] ? "#6d28d9" : "#d1d5db"}`, background: form[key] ? "#6d28d9" : "white", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>{form[key] && <span style={{ color: "white", fontSize: 14, fontWeight: 700, lineHeight: 1 }}>✓</span>}</div>
-                        <p style={{ fontSize: 13, color: "#374151", lineHeight: 1.6, margin: 0 }}>{required && <span style={{ fontWeight: 700, color: "#6d28d9" }}>Obligatoire — </span>}{label}</p>
-                      </div>
-                    ))}
-                  </div>
-                  {errors.consentRgpd && <p style={{ color: "#ef4444", fontSize: 13, marginTop: 10, fontWeight: 500 }}>{errors.consentRgpd}</p>}
-                </div>
-              )}
-
-              {step === 2 && (
-                <div>
-                  <div style={{ marginBottom: 36 }}><h2 style={{ fontFamily: serif, fontSize: 32, color: "#1a1a2e", marginBottom: 6, fontWeight: 600 }}>Simulateur de don</h2><p style={{ color: "#9ca3af", fontSize: 14 }}>Calculez votre avantage fiscal avec la défiscalisation à 66%</p></div>
-                  <div style={{ background: "linear-gradient(135deg,#1e1b4b,#4c1d95)", borderRadius: 22, padding: "36px 40px", marginBottom: 32, position: "relative", overflow: "hidden" }}>
-                    <div style={{ position: "absolute", top: -40, right: -40, width: 200, height: 200, borderRadius: "50%", background: "rgba(255,255,255,0.04)" }} />
-                    <label style={{ ...lbl, color: "rgba(255,255,255,0.5)", marginBottom: 12 }}>Montant de votre don mensuel</label>
-                    <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-                      <input type="number" min="0" step="0.01" value={form.montantDon} onChange={e => update("montantDon", e.target.value)} placeholder="0" style={{ fontSize: 56, fontWeight: 700, background: "transparent", border: "none", outline: "none", color: "white", fontFamily: font, width: "calc(100% - 50px)", caretColor: "#a78bfa" }} />
-                      <span style={{ fontSize: 36, fontWeight: 300, color: "rgba(255,255,255,0.5)" }}>€</span>
-                    </div>
-                    <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, marginTop: 16 }}>Les décimales sont acceptées (ex : 15.50)</p>
-                  </div>
-                  {montant > 0 ? (
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 28 }}>
-                      <div style={{ background: "white", borderRadius: 18, padding: "24px 20px", textAlign: "center", border: "2px solid #e5e7eb" }}><p style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 10 }}>Don déclaré</p><p style={{ fontSize: 30, fontWeight: 700, color: "#1a1a2e" }}>{parseFloat(form.montantDon).toFixed(2)} €</p><p style={{ fontSize: 12, color: "#9ca3af", marginTop: 6 }}>montant brut</p></div>
-                      <div style={{ background: "#fff7ed", borderRadius: 18, padding: "24px 20px", textAlign: "center", border: "2px solid #fed7aa" }}><p style={{ fontSize: 11, fontWeight: 700, color: "#92400e", letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 10 }}>Réduction d'impôt</p><p style={{ fontSize: 30, fontWeight: 700, color: "#ea580c" }}>{defiscalisation} €</p><p style={{ fontSize: 12, color: "#9a3412", marginTop: 6 }}>66% déduits</p></div>
-                      <div style={{ background: "#f0fdf4", borderRadius: 18, padding: "24px 20px", textAlign: "center", border: "2px solid #bbf7d0" }}><p style={{ fontSize: 11, fontWeight: 700, color: "#14532d", letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 10 }}>Coût réel</p><p style={{ fontSize: 30, fontWeight: 700, color: "#16a34a" }}>{netDon} €</p><p style={{ fontSize: 12, color: "#15803d", marginTop: 6 }}>après déduction</p></div>
-                    </div>
-                  ) : (
-                    <div style={{ background: "white", borderRadius: 18, padding: 32, textAlign: "center", border: "1px solid #e5e7eb", marginBottom: 28 }}><p style={{ color: "#d1d5db", fontSize: 15, fontWeight: 300 }}>Saisissez un montant ci-dessus pour simuler votre défiscalisation</p></div>
-                  )}
-                  <div style={{ background: "#f8f7ff", borderRadius: 16, padding: "18px 22px", border: "1px solid #ddd6fe" }}><p style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.7, margin: 0 }}><strong style={{ color: "#4c1d95" }}>Base légale :</strong> La réduction d'impôt de 66% s'applique conformément à l'article 200 du Code Général des Impôts, dans la limite de 20% du revenu imposable. Au-delà de ce plafond, l'excédent est reportable sur les années suivantes. Ce simulateur est fourni à titre indicatif.</p></div>
-                </div>
-              )}
-
-              {step === 3 && (
-                <div>
-                  <div style={{ marginBottom: 36 }}><h2 style={{ fontFamily: serif, fontSize: 32, color: "#1a1a2e", marginBottom: 6, fontWeight: 600 }}>Coordonnées bancaires</h2><p style={{ color: "#9ca3af", fontSize: 14 }}>Saisissez votre IBAN — il sera vérifié automatiquement — puis renseignez votre BIC</p></div>
-                  <div style={{ marginBottom: 28 }}>
-                    <label style={lbl}>IBAN (International Bank Account Number)</label>
-                    <div style={{ position: "relative" }}>
-                      <input value={form.iban} onChange={e => update("iban", e.target.value)} placeholder="FR76 3000 6000 0112 3456 7890 189" style={{ ...inputStyle(!!errors.iban, form.ibanValid === true), fontFamily: "monospace", letterSpacing: "0.08em", fontSize: 16, paddingRight: 52 }} />
-                      {form.ibanValid !== null && <div style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: form.ibanValid ? "#dcfce7" : "#fee2e2", fontSize: 14, fontWeight: 700, color: form.ibanValid ? "#16a34a" : "#ef4444" }}>{form.ibanValid ? "✓" : "✗"}</div>}
-                    </div>
-                    {form.ibanValid === true && <p style={{ color: "#16a34a", fontSize: 13, marginTop: 8, fontWeight: 600 }}>IBAN valide</p>}
-                    {form.ibanValid === false && <p style={{ color: "#ef4444", fontSize: 13, marginTop: 8 }}>IBAN invalide — vérifiez les chiffres saisis</p>}
-                    {errors.iban && <p style={{ color: "#ef4444", fontSize: 13, marginTop: 8 }}>{errors.iban}</p>}
-                  </div>
-                  <div style={{ marginBottom: 28 }}>
-                    <label style={lbl}>BIC / SWIFT</label>
-                    <input value={form.bic} onChange={e => update("bic", e.target.value)} placeholder="Ex : BNPAFRPP" style={{ ...inputStyle(false, false), fontFamily: "monospace", letterSpacing: "0.08em", fontSize: 16 }} />
-                  </div>
-                  <div style={{ background: "#fefce8", borderRadius: 16, padding: "18px 22px", border: "1px solid #fde68a" }}><p style={{ fontSize: 12, color: "#78350f", lineHeight: 1.7, margin: 0 }}><strong>Sécurité :</strong> Vos coordonnées bancaires sont chiffrées conformément aux normes PCI-DSS et utilisées exclusivement pour le prélèvement SEPA de votre adhésion.</p></div>
-                </div>
-              )}
-
-              {step === 4 && (
-                <div>
-                  <div style={{ marginBottom: 36 }}><h2 style={{ fontFamily: serif, fontSize: 32, color: "#1a1a2e", marginBottom: 6, fontWeight: 600 }}>Récapitulatif & Signature</h2><p style={{ color: "#9ca3af", fontSize: 14 }}>Vérifiez vos informations puis signez pour valider votre adhésion</p></div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
-                    <div style={{ background: "white", borderRadius: 18, padding: 24, border: "1px solid #e5e7eb", gridColumn: "1 / -1" }}>
-                      <h3 style={{ fontSize: 13, fontWeight: 700, color: "#6b7280", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 16 }}>Coordonnées civiles</h3>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 32px" }}>
-                        {[["Nom complet", `${form.prenom} ${form.nom}`], ["Date de naissance", form.dateNaissance ? new Date(form.dateNaissance).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" }) : "—"], ["Adresse", form.adresse], ["Code postal / Ville", `${form.codePostal} ${form.ville}`], ["Téléphone", form.telephone], ["Email", form.email]].map(([l, v]) => (
-                          <div key={l} style={{ padding: "10px 0", borderBottom: "1px solid #f3f4f6" }}><p style={{ fontSize: 11, color: "#9ca3af", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 3 }}>{l}</p><p style={{ fontSize: 14, color: "#1a1a2e", fontWeight: 500 }}>{v || "—"}</p></div>
-                        ))}
-                      </div>
-                    </div>
-                    <div style={{ background: "white", borderRadius: 18, padding: 24, border: "1px solid #e5e7eb" }}>
-                      <h3 style={{ fontSize: 13, fontWeight: 700, color: "#6b7280", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 16 }}>Consentements RGPD</h3>
-                      {[["Politique de confidentialité", form.consentRgpd], ["Communications marketing", form.consentMarketing]].map(([l, v]) => (
-                        <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #f3f4f6" }}><span style={{ fontSize: 13, color: "#374151" }}>{l}</span><span style={{ fontSize: 12, fontWeight: 700, color: v ? "#16a34a" : "#9ca3af" }}>{v ? "Accepté" : "Refusé"}</span></div>
-                      ))}
-                    </div>
-                    <div style={{ background: "white", borderRadius: 18, padding: 24, border: "1px solid #e5e7eb" }}>
-                      <h3 style={{ fontSize: 13, fontWeight: 700, color: "#6b7280", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 16 }}>Don mensuel</h3>
-                      {[["Montant déclaré", form.montantDon ? `${parseFloat(form.montantDon).toFixed(2)} €` : "Non renseigné"], ["Réduction d'impôt (66%)", form.montantDon ? `${defiscalisation} €` : "—"], ["Coût réel net", form.montantDon ? `${netDon} €` : "—"]].map(([l, v]) => (
-                        <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #f3f4f6" }}><span style={{ fontSize: 13, color: "#374151" }}>{l}</span><span style={{ fontSize: 13, fontWeight: 700, color: "#1a1a2e" }}>{v}</span></div>
-                      ))}
-                    </div>
-                    <div style={{ background: "white", borderRadius: 18, padding: 24, border: "1px solid #e5e7eb", gridColumn: "1 / -1" }}>
-                      <h3 style={{ fontSize: 13, fontWeight: 700, color: "#6b7280", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 16 }}>Coordonnées bancaires</h3>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 32px" }}>
-                        {[["IBAN", form.iban], ["BIC / SWIFT", form.bic]].map(([l, v]) => (
-                          <div key={l} style={{ padding: "10px 0", borderBottom: "1px solid #f3f4f6" }}><p style={{ fontSize: 11, color: "#9ca3af", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 3 }}>{l}</p><p style={{ fontSize: 14, color: "#1a1a2e", fontWeight: 500, fontFamily: "monospace", letterSpacing: "0.05em" }}>{v || "—"}</p></div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ background: "white", borderRadius: 18, padding: 28, border: "2px dashed #c4b5fd", marginBottom: 24 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                      <div><h3 style={{ fontSize: 15, fontWeight: 700, color: "#1a1a2e", marginBottom: 2 }}>Signature de l'adhérent</h3><p style={{ fontSize: 12, color: "#9ca3af" }}>Signez avec votre doigt ou un stylet sur tablette tactile</p></div>
-                      <button onClick={clearSignature} style={{ fontSize: 12, color: "#6d28d9", background: "#f5f3ff", border: "1px solid #ddd6fe", padding: "7px 16px", borderRadius: 20, cursor: "pointer", fontFamily: font, fontWeight: 600 }}>Effacer</button>
-                    </div>
-                    <div style={{ background: "#fafaf9", borderRadius: 14, overflow: "hidden", border: "1px solid #e5e7eb", touchAction: "none", position: "relative" }}>
-                      {!signature && <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", color: "#d1d5db", fontSize: 14, pointerEvents: "none", fontStyle: "italic" }}>Zone de signature</div>}
-                      <canvas ref={canvasRef} width={700} height={200} style={{ width: "100%", height: 200, display: "block", cursor: "crosshair" }} onMouseDown={startDraw} onMouseMove={draw} onMouseUp={endDraw} onMouseLeave={endDraw} onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={endDraw} />
-                    </div>
-                  </div>
-                  {submitError && <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 12, padding: "14px 18px", marginBottom: 16, color: "#991b1b", fontSize: 13 }}>{submitError}</div>}
-                  <button onClick={handleSubmit} disabled={submitting} style={{ width: "100%", padding: "18px", borderRadius: 16, border: "none", background: submitting ? "#9ca3af" : "linear-gradient(135deg,#1e1b4b,#4c1d95,#6d28d9)", color: "white", fontSize: 17, fontWeight: 700, cursor: submitting ? "not-allowed" : "pointer", fontFamily: font, boxShadow: "0 8px 28px rgba(76,29,149,0.45)" }}>
-                    {submitting ? "Enregistrement en cours..." : "Valider et soumettre le dossier d'adhésion"}
-                  </button>
-                </div>
-              )}
-
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 40, paddingTop: 28, borderTop: "1px solid #e5e7eb" }}>
-                <button onClick={prev} disabled={step === 0} style={{ padding: "13px 28px", borderRadius: 12, border: "2px solid #e5e7eb", background: step === 0 ? "#f9fafb" : "white", color: step === 0 ? "#d1d5db" : "#374151", fontSize: 14, fontWeight: 600, cursor: step === 0 ? "not-allowed" : "pointer", fontFamily: font }}>Précédent</button>
-                <span style={{ fontSize: 12, color: "#9ca3af", fontWeight: 500 }}>Étape {step + 1} sur {steps.length}</span>
-                {step < steps.length - 1 && <button onClick={next} style={{ padding: "13px 36px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#4c1d95,#6d28d9)", color: "white", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: font, boxShadow: "0 4px 16px rgba(76,29,149,0.35)" }}>Suivant</button>}
-              </div>
+        {/* Rappel d'origine */}
+        {adherent.rdv_date && (
+          <div style={{background:"#fffbeb",borderRadius:12,padding:"12px 16px",marginBottom:20,border:"1px solid #fde68a",display:"flex",gap:10,alignItems:"flex-start"}}>
+            <span style={{fontSize:18}}>📅</span>
+            <div>
+              <p style={{fontSize:12,fontWeight:700,color:"#92400e",marginBottom:2}}>Rappel d'origine</p>
+              <p style={{fontSize:12,color:"#78350f"}}>{new Date(adherent.rdv_date).toLocaleDateString("fr-FR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"})} à {new Date(adherent.rdv_date).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}</p>
+              {adherent.rdv_note && <p style={{fontSize:11,color:"#d97706",marginTop:2,fontStyle:"italic"}}>"{adherent.rdv_note}"</p>}
             </div>
           </div>
+        )}
+
+        {/* Séparateur */}
+        <div style={{borderTop:"2px dashed #e5e7eb",margin:"4px 0 20px",position:"relative"}}>
+          <span style={{position:"absolute",top:-11,left:"50%",transform:"translateX(-50%)",background:"#fafaf9",padding:"0 12px",fontSize:11,color:"#9ca3af",fontWeight:700,textTransform:"uppercase",letterSpacing:".08em"}}>RIB à compléter</span>
         </div>
-      );
+
+        {/* IBAN */}
+        <div style={{marginBottom:16}}>
+          <label style={lbl}>IBAN *</label>
+          <div style={{position:"relative"}}>
+            <input value={iban} onChange={e=>updateIban(e.target.value)} placeholder="FR76 3000 6000 0112 3456 7890 189" style={{...inputS(!!error&&!iban,ibanValid===true),fontFamily:"monospace",letterSpacing:".06em",paddingRight:48}}/>
+            {ibanValid!==null && <div style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",width:24,height:24,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",background:ibanValid?"#dcfce7":"#fee2e2",fontSize:12,fontWeight:700,color:ibanValid?"#16a34a":"#ef4444"}}>{ibanValid?"✓":"✗"}</div>}
+          </div>
+          {ibanValid===true  && <p style={{color:"#16a34a",fontSize:12,marginTop:6,fontWeight:600}}>IBAN valide ✓</p>}
+          {ibanValid===false && <p style={{color:"#ef4444",fontSize:12,marginTop:6}}>IBAN invalide — vérifiez les chiffres</p>}
+        </div>
+
+        <div style={{marginBottom:20}}>
+          <label style={lbl}>BIC / SWIFT</label>
+          <input value={bic} onChange={e=>{setBic(e.target.value);setError(null);}} placeholder="BNPAFRPP" style={{...inputS(false,false),fontFamily:"monospace",letterSpacing:".06em"}}/>
+        </div>
+
+        {error && <div style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:10,padding:"12px 16px",marginBottom:12,color:"#991b1b",fontSize:13}}>⚠️ {error}</div>}
+
+        <div style={{display:"flex",gap:10}}>
+          <button onClick={onCancel} style={{flex:1,padding:"14px",borderRadius:14,border:"2px solid #e5e7eb",background:"white",color:"#374151",fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:font}}>← Retour</button>
+          <button onClick={handleSubmit} disabled={submitting} style={{flex:2,padding:"14px",borderRadius:14,border:"none",background:submitting?"#9ca3af":"linear-gradient(135deg,#1e1b4b,#6d28d9)",color:"white",fontSize:14,fontWeight:700,cursor:submitting?"not-allowed":"pointer",fontFamily:font,boxShadow:"0 6px 24px rgba(76,29,149,.4)"}}>
+            {submitting ? "Enregistrement…" : "Valider le RIB — Finaliser l'adhésion ✓"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── GENDER BAR ────────────────────────────────────────────────────
+  function GenderBar({ sexeStats, total, compact = false }) {
+    if (!sexeStats || total === 0) return null;
+    const { H, F, A, NR } = sexeStats;
+    const pct = n => total > 0 ? Math.round(n / total * 100) : 0;
+    const segments = [
+      { key:"H", label:"♂ Hommes",  n:H, color:"#3b82f6", light:"rgba(59,130,246,.15)" },
+      { key:"F", label:"♀ Femmes",  n:F, color:"#ec4899", light:"rgba(236,72,153,.15)" },
+      { key:"A", label:"⚧ Autre",   n:A, color:"#8b5cf6", light:"rgba(139,92,246,.15)" },
+      { key:"NR",label:"— N/R",     n:NR,color:"#6b7280", light:"rgba(107,114,128,.1)" },
+    ].filter(s => s.n > 0);
+
+    return (
+      <div>
+        {/* Barre empilée */}
+        <div style={{display:"flex",borderRadius:8,overflow:"hidden",height:compact?18:28,marginBottom:compact?8:12,gap:1}}>
+          {segments.map(s => (
+            <div key={s.key} style={{width:`${pct(s.n)}%`,background:s.color,minWidth:s.n>0?4:0,transition:"width .6s",display:"flex",alignItems:"center",justifyContent:"center"}}>
+              {!compact && pct(s.n) >= 12 && <span style={{fontSize:10,fontWeight:700,color:"white"}}>{pct(s.n)}%</span>}
+            </div>
+          ))}
+        </div>
+        {/* Légende */}
+        <div style={{display:"flex",gap:compact?8:14,flexWrap:"wrap"}}>
+          {segments.map(s => (
+            <div key={s.key} style={{display:"flex",alignItems:"center",gap:5,background:s.light,padding:compact?"3px 8px":"4px 10px",borderRadius:20,border:`1px solid ${s.color}30`}}>
+              <div style={{width:8,height:8,borderRadius:"50%",background:s.color,flexShrink:0}}/>
+              <span style={{fontSize:compact?10:12,color:"rgba(255,255,255,0.7)",fontWeight:600}}>{s.label}</span>
+              <span style={{fontSize:compact?10:12,fontWeight:700,color:"white"}}>{s.n}</span>
+              <span style={{fontSize:compact?9:11,color:"rgba(255,255,255,0.4)"}}>({pct(s.n)}%)</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // ── STATS PANEL (accueil — journée uniquement) ───────────────────
+  function StatsPanel({ stats }) {
+    if (!stats) return (
+      <div style={{textAlign:"center",padding:40,color:"rgba(255,255,255,0.3)",fontSize:14}} className="loading-dot">
+        Chargement des statistiques…
+      </div>
+    );
+    const t = stats.todayStats || {};
+    const todayCount = t.total || 0;
+
+    return (
+      <div style={{display:"flex",flexDirection:"column",gap:16}}>
+        {/* Bandeau journée */}
+        <div style={{background:"rgba(167,139,250,.08)",border:"1px solid rgba(124,58,237,.25)",borderRadius:16,padding:"14px 20px",display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:18}}>📅</span>
+          <p style={{fontSize:13,color:"rgba(255,255,255,0.6)",lineHeight:1.5}}>
+            Statistiques de <strong style={{color:"white"}}>la journée en cours</strong> — {new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"})}
+          </p>
+        </div>
+
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16}} className="stats-grid-3">
+          {/* Adhérents aujourd'hui */}
+          <div className="card fade-in" style={{textAlign:"center"}}>
+            <div style={{fontSize:26,marginBottom:10}}>📋</div>
+            <div className="stat-value" style={{color:"#a78bfa"}}>{todayCount}</div>
+            <div className="stat-label">Adhérents aujourd'hui</div>
+          </div>
+
+          {/* Âge moyen + médian dans la même carte */}
+          <div className="card fade-in" style={{textAlign:"center"}}>
+            <div style={{fontSize:26,marginBottom:10}}>🎂</div>
+            <div className="stat-value" style={{color:"#60a5fa"}}>
+              {t.avgAge!=null?t.avgAge.toFixed(1):"—"}<span style={{fontSize:16,fontWeight:300,color:"rgba(255,255,255,0.4)",marginLeft:4}}>ans</span>
+            </div>
+            <div className="stat-label">Âge moyen</div>
+            <div style={{marginTop:8,paddingTop:8,borderTop:"1px solid rgba(255,255,255,0.06)"}}>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"#818cf8",lineHeight:1}}>
+                {t.medianAge!=null?t.medianAge.toFixed(0):"—"}<span style={{fontSize:13,fontWeight:300,color:"rgba(255,255,255,0.4)",marginLeft:3}}>ans</span>
+              </div>
+              <div style={{fontSize:10,fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",color:"rgba(255,255,255,0.3)",marginTop:4}}>Âge médian</div>
+            </div>
+          </div>
+
+          {/* Don moyen */}
+          <div className="card fade-in" style={{textAlign:"center"}}>
+            <div style={{fontSize:26,marginBottom:10}}>💸</div>
+            <div className="stat-value" style={{color:"#34d399"}}>
+              {t.avgDon!=null?t.avgDon.toFixed(2):"—"}<span style={{fontSize:16,fontWeight:300,color:"rgba(255,255,255,0.4)",marginLeft:4}}>€</span>
+            </div>
+            <div className="stat-label">Don moyen mensuel</div>
+          </div>
+
+          {/* Adh/heure journée */}
+          <div className="card fade-in" style={{textAlign:"center"}}>
+            <div style={{fontSize:26,marginBottom:10}}>⏱️</div>
+            <div className="stat-value" style={{color:"#fb923c"}}>
+              {(todayCount/6).toFixed(2)}<span style={{fontSize:16,fontWeight:300,color:"rgba(255,255,255,0.4)",marginLeft:4}}>/ h</span>
+            </div>
+            <div className="stat-label">Adh / heure (aujourd'hui)</div>
+          </div>
+
+          {/* Volume total journée */}
+          <div className="card fade-in" style={{textAlign:"center"}}>
+            <div style={{fontSize:26,marginBottom:10}}>💰</div>
+            <div className="stat-value" style={{color:"#fbbf24"}}>
+              {t.totalDons?t.totalDons.toFixed(2):"0.00"}<span style={{fontSize:16,fontWeight:300,color:"rgba(255,255,255,0.4)",marginLeft:4}}>€</span>
+            </div>
+            <div className="stat-label">Volume journée</div>
+          </div>
+
+          {/* Comparatif mission */}
+          <div className="card fade-in" style={{textAlign:"center",background:"rgba(129,140,248,.06)",borderColor:"rgba(129,140,248,.2)"}}>
+            <div style={{fontSize:26,marginBottom:10}}>👥</div>
+            <div className="stat-value" style={{color:"#818cf8"}}>{stats.total}</div>
+            <div className="stat-label">Total mission</div>
+          </div>
+        </div>
+
+        {/* Note base calcul */}
+        <div className="card" style={{background:"rgba(251,146,60,.08)",borderColor:"rgba(251,146,60,.2)"}}>
+          <p style={{fontSize:11,fontWeight:700,color:"rgba(251,146,60,.7)",letterSpacing:".08em",textTransform:"uppercase",marginBottom:6}}>Base de calcul</p>
+          <p style={{fontSize:13,color:"rgba(255,255,255,0.5)",lineHeight:1.7}}>
+            Le ratio <strong style={{color:"rgba(255,255,255,0.8)"}}>adh / heure</strong> est calculé sur <strong style={{color:"rgba(255,255,255,0.8)"}}>6 heures effectives</strong> de terrain. Aujourd'hui : <strong style={{color:"#fb923c"}}>{(todayCount/6).toFixed(2)} adh/h</strong> — Mission complète : <strong style={{color:"#818cf8"}}>{stats.perHour.toFixed(2)} adh/h</strong>.
+          </p>
+        </div>
+
+        {/* Genre journée */}
+        {t.sexeStats && t.total > 0 && (
+          <div className="card" style={{background:"rgba(255,255,255,0.03)"}}>
+            <p style={{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.4)",letterSpacing:".08em",textTransform:"uppercase",marginBottom:12}}>⚥ Répartition H/F — aujourd'hui</p>
+            <GenderBar sexeStats={t.sexeStats} total={t.total} compact={false}/>
+          </div>
+        )}
+      </div>
+    );
+  }
+  function App() {
+    const [currentUser, setCurrentUser] = useState(() => {
+      try { return JSON.parse(sessionStorage.getItem("collecteur")); } catch { return null; }
+    });
+    const [page, setPage]             = useState("dashboard");
+    const [stats, setStats]           = useState(null);
+    const [statsError, setStatsError] = useState(null);
+    const [rappels, setRappels]       = useState([]);
+    const [rappelSelected, setRappelSelected] = useState(null);
+
+    useEffect(() => { if (currentUser) loadStats(); }, [currentUser]);
+
+    async function deleteRappel(id) {
+      try {
+        await supabaseDelete("adherents", id);
+        setRappels(prev => prev.filter(r => r.id !== id));
+      } catch(e) { alert("Erreur suppression : " + e.message); }
     }
 
-    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
-  </script>
+    async function loadStats() {
+      try {
+        const rows = await supabaseFetch("adherents", `&collecteur_id=eq.${currentUser.id}`);
+        const incomplets = rows.filter(r => r.incomplet === true);
+        const adherents  = rows.filter(r => !r.incomplet);
+
+        const todayStr = new Date().toISOString().split("T")[0];
+        const todayAdh = adherents.filter(r => r.created_at && r.created_at.startsWith(todayStr));
+
+        function computeStats(list) {
+          const total = list.length;
+          const ages = list.map(r => calcAge(r.date_naissance)).filter(a => a!==null && a>0 && a<120);
+          const avgAge = ages.length>0 ? ages.reduce((s,a)=>s+a,0)/ages.length : null;
+          const sorted = [...ages].sort((a,b)=>a-b);
+          const medianAge = sorted.length>0
+            ? (sorted.length%2===0
+                ? (sorted[sorted.length/2-1]+sorted[sorted.length/2])/2
+                : sorted[Math.floor(sorted.length/2)])
+            : null;
+          const dons = list.map(r=>parseFloat(r.montant_don)).filter(d=>!isNaN(d)&&d>0);
+          const avgDon = dons.length>0 ? dons.reduce((s,d)=>s+d,0)/dons.length : null;
+          const totalDons = dons.reduce((s,d)=>s+d,0);
+          const perHour = total / 6;
+          const ageTranches = [
+            { label:"18–25", min:18, max:25, color:"#a78bfa" },
+            { label:"26–35", min:26, max:35, color:"#60a5fa" },
+            { label:"36–45", min:36, max:45, color:"#34d399" },
+            { label:"46–57", min:46, max:57, color:"#fbbf24" },
+            { label:"58–69", min:58, max:69, color:"#fb923c" },
+            { label:"70–99", min:70, max:99, color:"#f472b6" },
+          ].map(t => ({ ...t, value: ages.filter(a=>a>=t.min&&a<=t.max).length }));
+          const donTranches = [
+            { label:"10–15€",  color:"#a78bfa", value: list.filter(r=>r.montant_don>=10&&r.montant_don<15).length },
+            { label:"15–20€",  color:"#60a5fa", value: list.filter(r=>r.montant_don>=15&&r.montant_don<20).length },
+            { label:"20–25€",  color:"#34d399", value: list.filter(r=>r.montant_don>=20&&r.montant_don<25).length },
+            { label:"25–30€",  color:"#fbbf24", value: list.filter(r=>r.montant_don>=25&&r.montant_don<30).length },
+            { label:"30–35€",  color:"#fb923c", value: list.filter(r=>r.montant_don>=30&&r.montant_don<35).length },
+            { label:"35–40€",  color:"#f472b6", value: list.filter(r=>r.montant_don>=35&&r.montant_don<40).length },
+            { label:"40–50€",  color:"#f87171", value: list.filter(r=>r.montant_don>=40&&r.montant_don<50).length },
+            { label:"50€+",    color:"#4ade80", value: list.filter(r=>r.montant_don>=50).length },
+          ];
+          const nbH = list.filter(r=>r.sexe==="M").length;
+          const nbF = list.filter(r=>r.sexe==="F").length;
+          const nbA = list.filter(r=>r.sexe==="A").length;
+          const nbNR = total - nbH - nbF - nbA;
+          const sexeStats = { H:nbH, F:nbF, A:nbA, NR:nbNR };
+          return { total, avgAge, medianAge, avgDon, totalDons, perHour, ageTranches, donTranches, sexeStats };
+        }
+
+        const todaySt = computeStats(todayAdh);
+        const allSt   = computeStats(adherents);
+
+        setStats({
+          today: todaySt.total,
+          todayStats: todaySt,
+          allStats:   allSt,
+          // legacy fields for components that use stats.total etc.
+          total: allSt.total,
+          avgAge: allSt.avgAge,
+          medianAge: allSt.medianAge,
+          avgDon: allSt.avgDon,
+          totalDons: allSt.totalDons,
+          perHour: allSt.perHour,
+          ageTranches: allSt.ageTranches,
+          donTranches: allSt.donTranches,
+        });
+        setRappels(incomplets);
+      } catch(e) { setStatsError(e.message); }
+    }
+
+    function handleLogout() {
+      sessionStorage.removeItem("collecteur");
+      setCurrentUser(null);
+      setStats(null);
+    }
+
+    if (!currentUser) return <LoginScreen onLogin={user => setCurrentUser(user)} />;
+
+    return (
+      <div style={{minHeight:"100vh",display:"flex",flexDirection:"column"}}>
+        {/* HEADER */}
+        <header style={{background:"rgba(255,255,255,0.03)",borderBottom:"1px solid rgba(255,255,255,0.07)",padding:"0 32px",height:64,display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100,backdropFilter:"blur(12px)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:28}}>
+            <span style={{fontFamily:serif,fontSize:20,color:"white",fontWeight:600}}>🎯 Collecteur</span>
+            <nav className="desktop-header-nav" style={{display:"flex",gap:4}}>
+              {[
+                {key:"dashboard",label:"Accueil",icon:"🏠"},
+                {key:"don",label:"Nouvelle fiche",icon:"📋"},
+                {key:"stats",label:"Statistiques",icon:"📊"},
+                {key:"rappels",label:"Rappels",icon:"📞",badge:rappels.length},
+              ].map(n => (
+                <button key={n.key} onClick={()=>{setPage(n.key);setRappelSelected(null);}} className={`nav-link${page===n.key?" active":""}`} style={{background:page===n.key?"rgba(124,58,237,.2)":undefined,position:"relative"}}>
+                  {n.icon} {n.label}
+                  {n.badge > 0 && <span style={{position:"absolute",top:2,right:2,width:16,height:16,borderRadius:"50%",background:"#ef4444",color:"white",fontSize:9,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>{n.badge}</span>}
+                </button>
+              ))}
+            </nav>
+          </div>
+          <div className="desktop-header-right" style={{display:"flex",alignItems:"center",gap:10}}>
+            <span className="badge badge-purple">👤 {currentUser.prenom} {currentUser.nom}</span>
+            <a href="register.html" className="btn-ghost">Créer un compte</a>
+            <button onClick={handleLogout} style={{fontSize:13,padding:"8px 14px",borderRadius:10,border:"1px solid rgba(239,68,68,.3)",background:"rgba(239,68,68,.08)",color:"#f87171",fontFamily:font,fontWeight:600,cursor:"pointer"}}>Déconnexion</button>
+          </div>
+          {/* Mobile header right */}
+          <div style={{display:"flex",alignItems:"center",gap:8}} className="mobile-header-right">
+            <span style={{fontSize:13,color:"rgba(255,255,255,0.5)",fontWeight:600,maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{currentUser.prenom}</span>
+            <button onClick={handleLogout} style={{fontSize:11,padding:"6px 10px",borderRadius:8,border:"1px solid rgba(239,68,68,.3)",background:"rgba(239,68,68,.08)",color:"#f87171",fontFamily:font,fontWeight:600,cursor:"pointer"}}>✕</button>
+          </div>
+        </header>
+
+        {/* MOBILE BOTTOM NAV */}
+        <nav className="mobile-nav">
+          <div className="mobile-nav-items">
+            {[
+              {key:"dashboard",label:"Accueil",icon:"🏠"},
+              {key:"don",label:"Fiche",icon:"📋"},
+              {key:"stats",label:"Stats",icon:"📊"},
+              {key:"rappels",label:"Rappels",icon:"📞",badge:rappels.length},
+            ].map(n => (
+              <button key={n.key} onClick={()=>{setPage(n.key);setRappelSelected(null);}} className={`mobile-nav-btn${page===n.key?" active":""}`}>
+                {n.badge > 0 && <span className="mobile-nav-badge">{n.badge}</span>}
+                <span className="nav-icon">{n.icon}</span>
+                <span className="nav-label">{n.label}</span>
+              </button>
+            ))}
+          </div>
+        </nav>
+
+        {/* MAIN */}
+        <main style={{flex:1,maxWidth:1100,margin:"0 auto",width:"100%",padding:"36px 24px"}}>
+
+          {page==="dashboard" && (
+            <div className="fade-in">
+              <div style={{marginBottom:36}}>
+                <h1 style={{fontFamily:serif,fontSize:40,color:"white",fontWeight:600,marginBottom:8}}>Bonjour, {currentUser.prenom} 👋</h1>
+                <p style={{color:"rgba(255,255,255,0.5)",fontSize:15}}>Voici un aperçu de votre activité de collecte.</p>
+              </div>
+
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:36,maxWidth:760}} className="dashboard-grid">
+                <button onClick={()=>setPage("don")} style={{background:"linear-gradient(135deg,#1e1b4b,#4c1d95,#6d28d9)",border:"none",borderRadius:20,padding:"32px 24px",cursor:"pointer",textAlign:"left",color:"white",fontFamily:font,transition:"transform .2s",boxShadow:"0 8px 32px rgba(76,29,149,.35)"}} onMouseEnter={e=>e.currentTarget.style.transform="translateY(-3px)"} onMouseLeave={e=>e.currentTarget.style.transform=""}>
+                  <div style={{fontSize:32,marginBottom:14}}>📋</div>
+                  <h3 style={{fontSize:18,fontWeight:700,marginBottom:6}}>Nouvelle fiche de don</h3>
+                  <p style={{fontSize:13,color:"rgba(255,255,255,0.6)",lineHeight:1.5}}>Enregistrer un nouvel adhérent avec coordonnées, RGPD, don et signature.</p>
+                </button>
+                <button onClick={()=>setPage("stats")} style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:20,padding:"24px",cursor:"pointer",textAlign:"left",color:"white",fontFamily:font,transition:"all .2s"}} onMouseEnter={e=>{e.currentTarget.style.background="rgba(124,58,237,.1)";e.currentTarget.style.borderColor="rgba(124,58,237,.4)";}} onMouseLeave={e=>{e.currentTarget.style.background="rgba(255,255,255,0.04)";e.currentTarget.style.borderColor="rgba(255,255,255,0.1)";}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
+                    <div style={{fontSize:24}}>🥧</div>
+                    <span style={{fontSize:11,color:"rgba(255,255,255,0.3)",fontWeight:600,textTransform:"uppercase",letterSpacing:".06em"}}>Voir détails →</span>
+                  </div>
+                  <h3 style={{fontSize:16,fontWeight:700,marginBottom:10}}>Mes statistiques</h3>
+                  {stats && stats.ageTranches ? (
+                    <div style={{pointerEvents:"none"}}>
+                      <PieChart data={stats.ageTranches} size={120}/>
+                    </div>
+                  ) : (
+                    <p style={{fontSize:12,color:"rgba(255,255,255,0.35)"}}>Chargement…</p>
+                  )}
+                </button>
+                {rappels.length > 0 && (
+                  <button onClick={()=>setPage("rappels")} style={{background:"rgba(251,146,60,.08)",border:"1px solid rgba(251,146,60,.3)",borderRadius:20,padding:"24px",cursor:"pointer",textAlign:"left",color:"white",fontFamily:font,transition:"all .2s",display:"flex",alignItems:"center",gap:16,gridColumn:"1/-1"}} onMouseEnter={e=>{e.currentTarget.style.background="rgba(251,146,60,.15)";}} onMouseLeave={e=>{e.currentTarget.style.background="rgba(251,146,60,.08)";}}>
+                    <div style={{width:44,height:44,borderRadius:12,background:"rgba(251,146,60,.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>📞</div>
+                    <div>
+                      <h3 style={{fontSize:16,fontWeight:700,marginBottom:4,color:"#fb923c"}}>{rappels.length} dossier{rappels.length>1?"s":""} à rappeler</h3>
+                      <p style={{fontSize:12,color:"rgba(255,255,255,0.45)"}}>Des adhérents attendent leur RIB — cliquez pour finaliser</p>
+                    </div>
+                    <span style={{marginLeft:"auto",fontSize:18,color:"rgba(251,146,60,.6)"}}>→</span>
+                  </button>
+                )}
+              </div>
+
+              {statsError && <div style={{background:"rgba(239,68,68,.15)",border:"1px solid rgba(239,68,68,.3)",borderRadius:12,padding:"14px 18px",color:"#f87171",fontSize:13,marginBottom:20}}>{statsError}</div>}
+              <div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+                  <h2 style={{fontFamily:serif,fontSize:24,color:"white"}}>Mes statistiques</h2>
+                  <button onClick={loadStats} style={{fontSize:12,color:"rgba(255,255,255,0.4)",background:"none",border:"none",cursor:"pointer",fontFamily:font}}>🔄 Actualiser</button>
+                </div>
+                <StatsPanel stats={stats}/>
+              </div>
+            </div>
+          )}
+
+          {/* ADMIN FLOATING BUTTON */}
+          <a href="admin.html" title="Espace Admin" className="admin-btn-side" style={{position:"fixed",right:0,top:"50%",transform:"translateY(-50%)",writingMode:"vertical-rl",textOrientation:"mixed",background:"rgba(15,14,26,0.85)",border:"1px solid rgba(124,58,237,.25)",borderRight:"none",borderRadius:"10px 0 0 10px",padding:"14px 8px",color:"rgba(255,255,255,0.25)",fontSize:11,fontFamily:font,fontWeight:600,textDecoration:"none",letterSpacing:".1em",backdropFilter:"blur(8px)",transition:"all .2s",zIndex:200}} onMouseEnter={e=>{e.currentTarget.style.color="rgba(167,139,250,0.8)";e.currentTarget.style.borderColor="rgba(124,58,237,.5)";e.currentTarget.style.background="rgba(124,58,237,.12)";}} onMouseLeave={e=>{e.currentTarget.style.color="rgba(255,255,255,0.25)";e.currentTarget.style.borderColor="rgba(124,58,237,.25)";e.currentTarget.style.background="rgba(15,14,26,0.85)";}}>⚙ ADMIN</a>
+
+          {page==="stats" && (
+            <div className="fade-in">
+              <div style={{marginBottom:32}}>
+                <button onClick={()=>setPage("dashboard")} style={{background:"none",border:"none",color:"rgba(255,255,255,0.4)",cursor:"pointer",fontFamily:font,fontSize:13,padding:0,marginBottom:16}}>← Retour</button>
+                <h1 style={{fontFamily:serif,fontSize:40,color:"white",fontWeight:600,marginBottom:8}}>📊 Mes statistiques</h1>
+                <p style={{color:"rgba(255,255,255,0.5)",fontSize:15}}>Analyse détaillée de votre activité de collecte</p>
+              </div>
+
+              {!stats ? (
+                <div style={{textAlign:"center",padding:60,color:"rgba(255,255,255,0.3)"}} className="loading-dot">Chargement…</div>
+              ) : (
+                <div>
+                  {/* Bandeau scope */}
+                  <div style={{background:"rgba(129,140,248,.08)",border:"1px solid rgba(129,140,248,.2)",borderRadius:14,padding:"12px 18px",marginBottom:24,display:"flex",alignItems:"center",gap:10}}>
+                    <span style={{fontSize:16}}>📊</span>
+                    <p style={{fontSize:13,color:"rgba(255,255,255,0.6)"}}>Statistiques <strong style={{color:"white"}}>de toute la mission</strong> — tous les adhérents depuis le début</p>
+                  </div>
+
+                  {/* KPIs mission totale */}
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16,marginBottom:28}} className="kpi-grid">
+                    {/* Adhérents mission */}
+                    <div className="card" style={{textAlign:"center",padding:24}}>
+                      <div style={{fontSize:24,marginBottom:8}}>👥</div>
+                      <div style={{fontFamily:serif,fontSize:32,fontWeight:700,color:"#818cf8",lineHeight:1}}>{stats.allStats.total}</div>
+                      <div style={{fontSize:11,fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",color:"rgba(255,255,255,0.4)",marginTop:8}}>Total mission</div>
+                    </div>
+
+                    {/* Âge moyen + médian empilés */}
+                    <div className="card" style={{textAlign:"center",padding:24}}>
+                      <div style={{fontSize:24,marginBottom:8}}>🎂</div>
+                      <div style={{fontFamily:serif,fontSize:32,fontWeight:700,color:"#fb923c",lineHeight:1}}>
+                        {stats.allStats.avgAge!=null?stats.allStats.avgAge.toFixed(1):"—"}<span style={{fontSize:14,fontWeight:300,color:"rgba(255,255,255,0.4)",marginLeft:3}}>ans</span>
+                      </div>
+                      <div style={{fontSize:11,fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",color:"rgba(255,255,255,0.4)",marginTop:6}}>Âge moyen</div>
+                      {/* Médian en dessous */}
+                      <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid rgba(255,255,255,0.06)"}}>
+                        <div style={{fontFamily:serif,fontSize:24,fontWeight:700,color:"#818cf8",lineHeight:1}}>
+                          {stats.allStats.medianAge!=null?stats.allStats.medianAge.toFixed(0):"—"}<span style={{fontSize:13,fontWeight:300,color:"rgba(255,255,255,0.4)",marginLeft:3}}>ans</span>
+                        </div>
+                        <div style={{fontSize:10,fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",color:"rgba(255,255,255,0.3)",marginTop:4}}>Âge médian</div>
+                      </div>
+                    </div>
+
+                    {/* Don moyen */}
+                    <div className="card" style={{textAlign:"center",padding:24}}>
+                      <div style={{fontSize:24,marginBottom:8}}>💸</div>
+                      <div style={{fontFamily:serif,fontSize:32,fontWeight:700,color:"#34d399",lineHeight:1}}>
+                        {stats.allStats.avgDon!=null?stats.allStats.avgDon.toFixed(2):"—"}<span style={{fontSize:14,fontWeight:300,color:"rgba(255,255,255,0.4)",marginLeft:3}}>€</span>
+                      </div>
+                      <div style={{fontSize:11,fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",color:"rgba(255,255,255,0.4)",marginTop:8}}>Don moyen mensuel</div>
+                    </div>
+
+                    {/* Volume total */}
+                    <div className="card" style={{textAlign:"center",padding:24}}>
+                      <div style={{fontSize:24,marginBottom:8}}>💰</div>
+                      <div style={{fontFamily:serif,fontSize:32,fontWeight:700,color:"#60a5fa",lineHeight:1}}>
+                        {stats.allStats.totalDons?stats.allStats.totalDons.toFixed(2):"0.00"}<span style={{fontSize:14,fontWeight:300,color:"rgba(255,255,255,0.4)",marginLeft:3}}>€</span>
+                      </div>
+                      <div style={{fontSize:11,fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",color:"rgba(255,255,255,0.4)",marginTop:8}}>Volume total mensuel</div>
+                    </div>
+
+                    {/* Adh/h mission */}
+                    <div className="card" style={{textAlign:"center",padding:24}}>
+                      <div style={{fontSize:24,marginBottom:8}}>⏱️</div>
+                      <div style={{fontFamily:serif,fontSize:32,fontWeight:700,color:"#fbbf24",lineHeight:1}}>
+                        {stats.allStats.perHour.toFixed(2)}<span style={{fontSize:14,fontWeight:300,color:"rgba(255,255,255,0.4)",marginLeft:3}}>/h</span>
+                      </div>
+                      <div style={{fontSize:11,fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",color:"rgba(255,255,255,0.4)",marginTop:8}}>Adh / heure (mission)</div>
+                    </div>
+
+                    {/* Adh/h journée */}
+                    <div className="card" style={{textAlign:"center",padding:24,background:"rgba(167,139,250,.06)",borderColor:"rgba(124,58,237,.25)"}}>
+                      <div style={{fontSize:24,marginBottom:8}}>📅</div>
+                      <div style={{fontFamily:serif,fontSize:32,fontWeight:700,color:"#a78bfa",lineHeight:1}}>
+                        {(stats.todayStats.perHour).toFixed(2)}<span style={{fontSize:14,fontWeight:300,color:"rgba(255,255,255,0.4)",marginLeft:3}}>/h</span>
+                      </div>
+                      <div style={{fontSize:11,fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",color:"rgba(255,255,255,0.4)",marginTop:8}}>Adh / heure (aujourd'hui)</div>
+                    </div>
+                  </div>
+
+                  {/* Progression journée vs mission */}
+                  <div className="card" style={{marginBottom:28,background:"rgba(167,139,250,.06)",borderColor:"rgba(124,58,237,.2)"}}>
+                    <h3 style={{fontFamily:serif,fontSize:18,color:"white",marginBottom:16}}>📅 Journée en cours vs Mission totale</h3>
+                    <div style={{display:"flex",gap:24,alignItems:"center",flexWrap:"wrap"}}>
+                      <div style={{flex:1,minWidth:200}}>
+                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                          <span style={{fontSize:12,color:"rgba(255,255,255,0.5)"}}>Aujourd'hui</span>
+                          <span style={{fontSize:12,fontWeight:700,color:"#a78bfa"}}>{stats.todayStats.total} adh.</span>
+                        </div>
+                        <div style={{background:"rgba(255,255,255,0.06)",borderRadius:8,height:10,overflow:"hidden"}}>
+                          <div style={{height:"100%",background:"#a78bfa",borderRadius:8,width:`${stats.allStats.total>0?Math.min(100,(stats.todayStats.total/stats.allStats.total)*100):0}%`,transition:"width .6s"}}/>
+                        </div>
+                        <div style={{display:"flex",justifyContent:"space-between",marginTop:8}}>
+                          <span style={{fontSize:12,color:"rgba(255,255,255,0.5)"}}>Mission totale</span>
+                          <span style={{fontSize:12,fontWeight:700,color:"#818cf8"}}>{stats.allStats.total} adh.</span>
+                        </div>
+                        <div style={{background:"rgba(255,255,255,0.06)",borderRadius:8,height:10,overflow:"hidden",marginTop:6}}>
+                          <div style={{height:"100%",background:"#818cf8",borderRadius:8,width:"100%"}}/>
+                        </div>
+                        <div style={{display:"flex",justifyContent:"space-between",marginTop:12,gap:16,flexWrap:"wrap"}}>
+                          <div style={{fontSize:12,color:"rgba(255,255,255,0.45)"}}>⏱️ Journée : <strong style={{color:"#a78bfa"}}>{stats.todayStats.perHour.toFixed(2)} adh/h</strong></div>
+                          <div style={{fontSize:12,color:"rgba(255,255,255,0.45)"}}>⏱️ Mission : <strong style={{color:"#fbbf24"}}>{stats.allStats.perHour.toFixed(2)} adh/h</strong></div>
+                        </div>
+                      </div>
+                      <div style={{display:"flex",gap:20,flexShrink:0}}>
+                        <div style={{textAlign:"center"}}>
+                          <div style={{fontFamily:serif,fontSize:40,fontWeight:700,color:"#a78bfa",lineHeight:1}}>{stats.todayStats.total}</div>
+                          <div style={{fontSize:10,color:"rgba(255,255,255,0.35)",fontWeight:700,textTransform:"uppercase",marginTop:4}}>Aujourd'hui</div>
+                        </div>
+                        <div style={{width:1,background:"rgba(255,255,255,0.08)"}}/>
+                        <div style={{textAlign:"center"}}>
+                          <div style={{fontFamily:serif,fontSize:40,fontWeight:700,color:"#818cf8",lineHeight:1}}>{stats.allStats.total}</div>
+                          <div style={{fontSize:10,color:"rgba(255,255,255,0.35)",fontWeight:700,textTransform:"uppercase",marginTop:4}}>Mission</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Camembert âges + Barres dons — basés sur la mission complète */}
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20,marginBottom:28}} className="stats-grid-2">
+                    <div className="card">
+                      <h3 style={{fontFamily:serif,fontSize:20,color:"white",marginBottom:4}}>🎂 Répartition par âge</h3>
+                      <p style={{fontSize:11,color:"rgba(255,255,255,0.3)",marginBottom:16}}>Mission complète</p>
+                      {stats.allStats.ageTranches && <PieChart data={stats.allStats.ageTranches} size={160}/>}
+                    </div>
+                    <div className="card">
+                      <h3 style={{fontFamily:serif,fontSize:20,color:"white",marginBottom:4}}>💸 Répartition par don</h3>
+                      <p style={{fontSize:11,color:"rgba(255,255,255,0.3)",marginBottom:16}}>Mission complète</p>
+                      {stats.allStats.donTranches && <BarChart data={stats.allStats.donTranches}/>}
+                    </div>
+                  </div>
+
+                  {/* Répartition genre — mission */}
+                  <div className="card" style={{marginBottom:28}}>
+                    <h3 style={{fontFamily:serif,fontSize:20,color:"white",marginBottom:4}}>⚥ Répartition Homme / Femme</h3>
+                    <p style={{fontSize:11,color:"rgba(255,255,255,0.3)",marginBottom:16}}>Mission complète</p>
+                    {stats.allStats.sexeStats && stats.allStats.total > 0 ? (
+                      <div>
+                        <GenderBar sexeStats={stats.allStats.sexeStats} total={stats.allStats.total} compact={false}/>
+                        {/* Comparatif journée si données dispo */}
+                        {stats.todayStats.total > 0 && stats.todayStats.sexeStats && (
+                          <div style={{marginTop:16,paddingTop:16,borderTop:"1px solid rgba(255,255,255,0.06)"}}>
+                            <p style={{fontSize:11,fontWeight:700,color:"rgba(167,139,250,.6)",textTransform:"uppercase",letterSpacing:".08em",marginBottom:10}}>Aujourd'hui</p>
+                            <GenderBar sexeStats={stats.todayStats.sexeStats} total={stats.todayStats.total} compact={true}/>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p style={{fontSize:13,color:"rgba(255,255,255,0.3)",fontStyle:"italic"}}>Aucune donnée de genre disponible — renseignez le genre lors des prochaines saisies.</p>
+                    )}
+                  </div>
+
+                  {/* Rappels en attente */}
+                  {rappels.length > 0 && (
+                    <div className="card" style={{background:"rgba(251,146,60,.06)",borderColor:"rgba(251,146,60,.2)"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                        <div>
+                          <p style={{fontSize:11,fontWeight:700,color:"rgba(251,146,60,.7)",textTransform:"uppercase",letterSpacing:".08em",marginBottom:4}}>Dossiers incomplets</p>
+                          <p style={{fontFamily:serif,fontSize:28,fontWeight:700,color:"#fb923c"}}>{rappels.length} <span style={{fontSize:16,fontWeight:400,color:"rgba(255,255,255,0.4)"}}>en attente de RIB</span></p>
+                        </div>
+                        <button onClick={()=>setPage("rappels")} style={{padding:"12px 20px",borderRadius:12,border:"1px solid rgba(251,146,60,.4)",background:"rgba(251,146,60,.1)",color:"#fb923c",cursor:"pointer",fontFamily:font,fontSize:13,fontWeight:700}}>Voir les rappels →</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Base de calcul */}
+                  <div className="card" style={{marginTop:16,background:"rgba(251,146,60,.08)",borderColor:"rgba(251,146,60,.2)"}}>
+                    <p style={{fontSize:11,fontWeight:700,color:"rgba(251,146,60,.7)",letterSpacing:".08em",textTransform:"uppercase",marginBottom:8}}>Base de calcul</p>
+                    <p style={{fontSize:13,color:"rgba(255,255,255,0.5)",lineHeight:1.7}}>
+                      Le ratio <strong style={{color:"rgba(255,255,255,0.8)"}}>adh / heure</strong> est calculé sur <strong style={{color:"rgba(255,255,255,0.8)"}}>6 heures effectives</strong> de terrain.
+                      Mission : <strong style={{color:"#fbbf24"}}>{stats.allStats.perHour.toFixed(2)} adh/h</strong> ({stats.allStats.total} adhérents) —
+                      Aujourd'hui : <strong style={{color:"#a78bfa"}}>{stats.todayStats.perHour.toFixed(2)} adh/h</strong> ({stats.todayStats.total} adhérents).
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {page==="don" && (
+            <div className="fade-in">
+              <div style={{marginBottom:28}}>
+                <button onClick={()=>setPage("dashboard")} style={{background:"none",border:"none",color:"rgba(255,255,255,0.4)",cursor:"pointer",fontFamily:font,fontSize:13,padding:0,marginBottom:16}}>← Retour</button>
+                <h1 style={{fontFamily:serif,fontSize:36,color:"white",fontWeight:600,marginBottom:6}}>Nouvelle fiche de don</h1>
+                <p style={{color:"rgba(255,255,255,0.5)",fontSize:14}}>Remplissez chaque étape pour enregistrer l'adhérent</p>
+              </div>
+              <div className="donation-form-wrap" style={{background:"#fafaf9",borderRadius:24,padding:"36px 40px",maxWidth:720,boxShadow:"0 24px 64px rgba(0,0,0,0.3)"}}>
+                <DonationPanel currentUser={currentUser} onSuccess={()=>{ loadStats(); setPage("dashboard"); }}/>
+              </div>
+            </div>
+          )}
+
+          {page==="rappels" && (
+            <div className="fade-in">
+              {rappelSelected ? (
+                /* ── VUE FICHE INDIVIDUELLE ── */
+                <div>
+                  <div style={{marginBottom:28}}>
+                    <button onClick={()=>setRappelSelected(null)} style={{background:"none",border:"none",color:"rgba(255,255,255,0.4)",cursor:"pointer",fontFamily:font,fontSize:13,padding:0,marginBottom:16}}>← Retour aux rappels</button>
+                    <h1 style={{fontFamily:serif,fontSize:36,color:"white",fontWeight:600,marginBottom:6}}>Finaliser le dossier</h1>
+                    <p style={{color:"rgba(255,255,255,0.5)",fontSize:14}}>Complétez le RIB manquant pour valider l'adhésion de {rappelSelected.prenom} {rappelSelected.nom}</p>
+                  </div>
+                  <div className="completion-panel-wrap" style={{background:"#fafaf9",borderRadius:24,padding:"36px 40px",maxWidth:720,boxShadow:"0 24px 64px rgba(0,0,0,0.3)"}}>
+                    <CompletionPanel
+                      adherent={rappelSelected}
+                      onSuccess={()=>{ loadStats(); setRappelSelected(null); }}
+                      onCancel={()=>setRappelSelected(null)}
+                    />
+                  </div>
+                </div>
+              ) : (
+                /* ── LISTE DES RAPPELS ── */
+                <div>
+                  <div style={{marginBottom:32}}>
+                    <h1 style={{fontFamily:serif,fontSize:40,color:"white",fontWeight:600,marginBottom:8}}>📞 Dossiers à rappeler</h1>
+                    <p style={{color:"rgba(255,255,255,0.5)",fontSize:15}}>
+                      {rappels.length === 0 ? "Aucun dossier incomplet — tout est à jour !" : `${rappels.length} dossier${rappels.length>1?"s":""} en attente de RIB`}
+                    </p>
+                  </div>
+
+                  {rappels.length === 0 ? (
+                    <div className="card" style={{textAlign:"center",padding:"60px 40px"}}>
+                      <div style={{fontSize:52,marginBottom:16}}>✅</div>
+                      <h3 style={{fontFamily:serif,fontSize:24,color:"white",marginBottom:8}}>Tout est à jour !</h3>
+                      <p style={{color:"rgba(255,255,255,0.4)",fontSize:14}}>Aucun adhérent en attente de RIB.</p>
+                    </div>
+                  ) : (
+                    <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                      {rappels
+                        .slice()
+                        .sort((a,b) => {
+                          // En retard d'abord, puis par date
+                          const now = new Date();
+                          const aUrgent = a.rdv_date && new Date(a.rdv_date) <= now;
+                          const bUrgent = b.rdv_date && new Date(b.rdv_date) <= now;
+                          if (aUrgent && !bUrgent) return -1;
+                          if (!aUrgent && bUrgent) return 1;
+                          if (a.rdv_date && b.rdv_date) return new Date(a.rdv_date) - new Date(b.rdv_date);
+                          if (a.rdv_date) return -1;
+                          if (b.rdv_date) return 1;
+                          return 0;
+                        })
+                        .map(r => {
+                          const rdvDate = r.rdv_date ? new Date(r.rdv_date) : null;
+                          const isUrgent = rdvDate && rdvDate <= new Date();
+                          return (
+                            <div key={r.id} className="rappel-card" style={{background:isUrgent?"rgba(239,68,68,.06)":"rgba(255,255,255,0.03)",border:`1px solid ${isUrgent?"rgba(239,68,68,.25)":"rgba(251,146,60,.2)"}`,borderRadius:16,padding:"20px 24px",display:"flex",alignItems:"center",gap:16,transition:"border-color .2s"}}>
+                              {/* Indicateur urgence */}
+                              <div style={{width:44,height:44,borderRadius:12,background:isUrgent?"rgba(239,68,68,.15)":"rgba(251,146,60,.1)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>
+                                {isUrgent ? "🔴" : "📅"}
+                              </div>
+
+                              {/* Identité + infos */}
+                              <div style={{flex:1,minWidth:0}}>
+                                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                                  <p style={{fontWeight:700,color:"white",fontSize:15}}>{r.prenom} {r.nom}</p>
+                                  {isUrgent && <span style={{fontSize:10,padding:"2px 8px",borderRadius:20,background:"rgba(239,68,68,.2)",color:"#f87171",fontWeight:700}}>EN RETARD</span>}
+                                </div>
+                                <p style={{fontSize:12,color:"rgba(255,255,255,0.45)",marginBottom:4}}>
+                                  📞 {r.telephone || "—"} &nbsp;·&nbsp; 📧 {r.email || "—"}
+                                  {r.ville && <span> &nbsp;·&nbsp; 📍 {r.ville}</span>}
+                                </p>
+                                {rdvDate && (
+                                  <p style={{fontSize:12,fontWeight:600,color:isUrgent?"#f87171":"#fb923c"}}>
+                                    🗓 {rdvDate.toLocaleDateString("fr-FR",{weekday:"long",day:"2-digit",month:"long"})} à {rdvDate.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}
+                                  </p>
+                                )}
+                                {r.rdv_note && <p style={{fontSize:11,color:"rgba(255,255,255,0.3)",marginTop:2,fontStyle:"italic"}}>"{r.rdv_note}"</p>}
+                              </div>
+
+                              {/* Don + actions */}
+                              <div className="rappel-actions" style={{textAlign:"right",flexShrink:0,display:"flex",flexDirection:"column",alignItems:"flex-end",gap:8}}>
+                                {r.montant_don && (
+                                  <p style={{fontSize:16,fontWeight:700,color:"#34d399"}}>{parseFloat(r.montant_don).toFixed(2)} €<span style={{fontSize:11,color:"rgba(255,255,255,0.35)",fontWeight:400}}>/mois</span></p>
+                                )}
+                                <button
+                                  onClick={()=>setRappelSelected(r)}
+                                  style={{padding:"10px 20px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#4c1d95,#6d28d9)",color:"white",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:font,boxShadow:"0 4px 16px rgba(76,29,149,.35)",whiteSpace:"nowrap"}}
+                                >
+                                  📝 Finaliser le dossier
+                                </button>
+                                <button
+                                  onClick={()=>{ if(window.confirm(`Supprimer le dossier de ${r.prenom} ${r.nom} ?`)) deleteRappel(r.id); }}
+                                  title="Supprimer ce dossier"
+                                  style={{width:32,height:32,borderRadius:8,border:"1px solid rgba(239,68,68,.3)",background:"rgba(239,68,68,.08)",color:"#f87171",cursor:"pointer",fontFamily:font,fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}
+                                >×</button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </main>
+
+        {/* FOOTER */}
+        <footer style={{borderTop:"1px solid rgba(255,255,255,0.06)",padding:"16px 32px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span style={{fontSize:12,color:"rgba(255,255,255,0.25)"}}>Espace Collecteur</span>
+          <div style={{display:"flex",gap:16}}>
+            <a href="register.html" style={{fontSize:12,color:"rgba(255,255,255,0.35)",textDecoration:"none"}}>Créer un compte</a>
+            <a href="admin.html" style={{fontSize:12,color:"rgba(255,255,255,0.35)",textDecoration:"none"}}>Admin</a>
+          </div>
+        </footer>
+      </div>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
   <script src="/pwa.js"></script>
 </body>
 </html>
