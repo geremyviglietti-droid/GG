@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Diagnostic Hors-ligne</title>
+  <style>
+    body { background:#0f0e1a; font-family:system-ui,sans-serif; color:white; padding:20px; }
+    h1 { font-size:20px; margin-bottom:20px; }
+    .test { background:rgba(255,255,255,.07); border-radius:12px; padding:16px; margin-bottom:12px; }
+    .test h2 { font-size:14px; font-weight:700; margin-bottom:8px; color:#a78bfa; }
+    .result { font-size:13px; padding:8px 12px; border-radius:8px; margin-top:8px; font-family:monospace; word-break:break-all; }
+    .ok   { background:rgba(74,222,128,.15); color:#4ade80; }
+    .fail { background:rgba(239,68,68,.15);  color:#f87171; }
+    .warn { background:rgba(251,146,60,.15); color:#fb923c; }
+    .info { background:rgba(96,165,250,.15); color:#93c5fd; }
+    button { background:linear-gradient(135deg,#4c1d95,#6d28d9); color:white; border:none; padding:14px 28px; border-radius:12px; font-size:15px; font-weight:700; cursor:pointer; width:100%; margin-bottom:12px; }
+  </style>
+</head>
+<body>
+<h1>🔍 Diagnostic hors-ligne</h1>
+<p style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:20px">
+  Coupez le Wi-Fi/données, puis appuyez sur "Lancer le diagnostic"
+</p>
+
+<button onclick="runDiagnostic()">🚀 Lancer le diagnostic</button>
+
+<div id="results"></div>
+
+<script>
+const SUPABASE_URL = "https://couruebftrtlqwffdavz.supabase.co";
+const SUPABASE_KEY = "sb_publishable_XKVDlf9Bem837GPgx8RNqw_lgs9Q6zc";
+
+function addResult(title, status, message) {
+  const div = document.createElement('div');
+  div.className = 'test';
+  div.innerHTML = `<h2>${title}</h2><div class="result ${status}">${message}</div>`;
+  document.getElementById('results').appendChild(div);
+}
+
+async function runDiagnostic() {
+  document.getElementById('results').innerHTML = '';
+  
+  // TEST 1 : navigator.onLine
+  addResult(
+    '1. navigator.onLine',
+    navigator.onLine ? 'warn' : 'ok',
+    `navigator.onLine = ${navigator.onLine} ${navigator.onLine ? '⚠️ Dit "en ligne" même hors-connexion — non fiable !' : '✓ Détecte bien le mode hors-ligne'}`
+  );
+
+  // TEST 2 : IndexedDB disponible
+  try {
+    const db = await new Promise((res, rej) => {
+      const r = indexedDB.open('test-diag', 1);
+      r.onupgradeneeded = e => e.target.result.createObjectStore('t', {keyPath:'id',autoIncrement:true});
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+    // Écrire un enregistrement
+    await new Promise((res, rej) => {
+      const tx = db.transaction('t','readwrite');
+      const r = tx.objectStore('t').add({val:'test', ts: Date.now()});
+      r.onsuccess = res; r.onerror = rej;
+    });
+    addResult('2. IndexedDB (stockage local)', 'ok', '✓ IndexedDB fonctionne — les dossiers peuvent être sauvegardés localement');
+  } catch(e) {
+    addResult('2. IndexedDB (stockage local)', 'fail', '✗ IndexedDB indisponible : ' + e.message + ' — impossible de sauvegarder hors-ligne !');
+  }
+
+  // TEST 3 : fetch vers Supabase (doit échouer hors-ligne)
+  addResult('3. Test fetch Supabase', 'info', '⏳ En cours (timeout 5s)...');
+  const t3 = document.querySelector('#results .test:last-child .result');
+  try {
+    const p = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('TIMEOUT_5S')), 5000);
+      fetch(`${SUPABASE_URL}/rest/v1/adherents?select=count`, {
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
+      }).then(r => { clearTimeout(timer); resolve(r); })
+        .catch(e => { clearTimeout(timer); reject(e); });
+    });
+    const r = await p;
+    t3.className = 'result warn';
+    t3.textContent = `⚠️ Fetch a RÉUSSI (status ${r.status}) — vous êtes peut-être encore en ligne ?`;
+  } catch(e) {
+    t3.className = 'result ok';
+    t3.textContent = `✓ Fetch a échoué comme prévu hors-ligne\nErreur exacte : "${e.message}"\nType : ${e.constructor.name}`;
+  }
+
+  // TEST 4 : openOfflineDB (notre vraie fonction)
+  try {
+    const db2 = await new Promise((resolve, reject) => {
+      const req = indexedDB.open('adhesion-offline-db', 1);
+      req.onupgradeneeded = e => {
+        e.target.result.createObjectStore('queue', { keyPath: 'id', autoIncrement: true });
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    const id = await new Promise((res, rej) => {
+      const tx = db2.transaction('queue','readwrite');
+      const r = tx.objectStore('queue').add({ table:'test', data:{test:true}, savedAt: new Date().toISOString() });
+      r.onsuccess = () => res(r.result); r.onerror = rej;
+    });
+    addResult('4. Base offline (adhesion-offline-db)', 'ok', `✓ Sauvegarde locale fonctionne — ID enregistré : ${id}`);
+  } catch(e) {
+    addResult('4. Base offline (adhesion-offline-db)', 'fail', '✗ ERREUR : ' + e.message);
+  }
+
+  // TEST 5 : Vérifier le code chargé sur index.html
+  try {
+    const r = await fetch('index.html');
+    const text = await r.text();
+    const hasFetchAvecTimeout = text.includes('fetchAvecTimeout');
+    const hasIsNetworkError = text.includes('isNetworkError');
+    const hasOpenOfflineDB = text.includes('openOfflineDB');
+    addResult(
+      '5. Version du code index.html',
+      (hasFetchAvecTimeout && hasIsNetworkError) ? 'ok' : 'fail',
+      `fetchAvecTimeout : ${hasFetchAvecTimeout ? '✓ présent' : '✗ ABSENT — ANCIEN CODE EN LIGNE !'}\n` +
+      `isNetworkError   : ${hasIsNetworkError ? '✓ présent' : '✗ ABSENT — ANCIEN CODE EN LIGNE !'}\n` +
+      `openOfflineDB    : ${hasOpenOfflineDB ? '✓ présent' : '✗ absent'}`
+    );
+  } catch(e) {
+    addResult('5. Version du code', 'warn', 'Impossible de vérifier : ' + e.message);
+  }
+
+  // TEST 6 : Service Worker
+  if ('serviceWorker' in navigator) {
+    const regs = await navigator.serviceWorker.getRegistrations();
+    if (regs.length > 0) {
+      const sw = regs[0];
+      addResult('6. Service Worker', 'ok', 
+        `✓ SW enregistré\nScope : ${sw.scope}\nÉtat : ${sw.active ? 'actif' : sw.installing ? 'installation' : sw.waiting ? 'en attente' : 'inconnu'}`
+      );
+    } else {
+      addResult('6. Service Worker', 'warn', '⚠️ Aucun SW enregistré — le mode offline ne sera pas persistant');
+    }
+  } else {
+    addResult('6. Service Worker', 'fail', '✗ Service Workers non supportés sur ce navigateur');
+  }
+
+  addResult('✅ Diagnostic terminé', 'info', 'Faites une capture d\'écran et envoyez-la pour analyse.');
+}
+</script>
+</body>
+</html>
