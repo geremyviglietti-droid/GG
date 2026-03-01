@@ -3,24 +3,23 @@
    Stratégie robuste offline-first
    ================================================================ */
 
-const CACHE_NAME = 'adhesion-crm-v2';
+const CACHE_NAME = 'adhesion-crm-v4';
 const SYNC_TAG   = 'sync-adhesions';
 
 const LOCAL_ASSETS = [
-  '/index.html',
-  '/dashboard.html',
-  '/admin.html',
-  '/register.html',
-  '/manifest.json',
-  '/pwa.js',
+  'index.html',
+  'dashboard.html',
+  'admin.html',
+  'register.html',
+  'manifest.json',
+  'pwa.js',
+  'libs/react.min.js',
+  'libs/react-dom.min.js',
+  'libs/babel.min.js',
+  'libs/fonts.css',
 ];
 
-const CDN_ASSETS = [
-  'https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js',
-  'https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Cormorant+Garamond:wght@400;500;600;700&display=swap',
-];
+const CDN_ASSETS = []; // Libs maintenant locales dans /libs/
 
 const OFFLINE_HTML = `<!DOCTYPE html>
 <html lang="fr"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
@@ -34,7 +33,7 @@ self.addEventListener('install', (event) => {
     const cache = await caches.open(CACHE_NAME);
 
     // Toujours stocker la page offline inline
-    await cache.put('/offline.html', new Response(OFFLINE_HTML, {
+    await cache.put('offline.html', new Response(OFFLINE_HTML, {
       headers: { 'Content-Type': 'text/html; charset=utf-8' }
     }));
 
@@ -137,7 +136,7 @@ async function networkFirst(req) {
 
 async function offline(req) {
   if (req.mode === 'navigate') {
-    return (await caches.match('/offline.html')) || new Response('<h1>Hors-ligne</h1>', { headers: { 'Content-Type': 'text/html' } });
+    return (await caches.match('offline.html')) || new Response('<h1>Hors-ligne</h1>', { headers: { 'Content-Type': 'text/html' } });
   }
   return new Response('/* offline */', { status: 503, headers: { 'Content-Type': 'application/javascript' } });
 }
