@@ -1640,6 +1640,15 @@
 
   ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 </script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      const swPath = new URL('sw.js', window.location.href).pathname;
+      const swScope = new URL('./', window.location.href).pathname;
+      navigator.serviceWorker.register(swPath, { scope: swScope })
+        .then(r => console.log('[SW] OK scope:', r.scope))
+        .catch(e => console.warn('[SW] Erreur:', e));
+    }
+  </script>
   <script src="pwa.js"></script>
 </body>
 </html>
