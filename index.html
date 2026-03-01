@@ -731,6 +731,21 @@
 
     ReactDOM.createRoot(document.getElementById("root")).render(<App />);
   </script>
+  <script>
+    // ── ENREGISTREMENT SERVICE WORKER (inline, avant tout) ──────────
+    if ('serviceWorker' in navigator) {
+      // Déterminer le bon scope automatiquement
+      const swPath = new URL('sw.js', window.location.href).pathname;
+      const swScope = new URL('./', window.location.href).pathname;
+      navigator.serviceWorker.register(swPath, { scope: swScope })
+        .then(reg => {
+          console.log('[SW] Enregistré, scope:', reg.scope);
+        })
+        .catch(err => {
+          console.warn('[SW] Échec enregistrement:', err);
+        });
+    }
+  </script>
   <script src="pwa.js"></script>
 </body>
 </html>
