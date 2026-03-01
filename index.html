@@ -104,28 +104,50 @@
     if (navigator.onLine) setTimeout(syncOfflineQueue, 2000);
 
     async function supabaseInsert(table, data) {
-      // Toujours essayer le réseau d'abord, avec timeout de 6 secondes
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 6000);
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+      // Wrapper réseau avec Promise.race contre un timeout
+      const fetchAvecTimeout = () => new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error("timeout")), 5000);
+        fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
           method: "POST",
-          headers: { "Content-Type": "application/json", "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}`, "Prefer": "return=representation" },
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": SUPABASE_ANON_KEY,
+            "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+            "Prefer": "return=representation"
+          },
           body: JSON.stringify(data),
-          signal: controller.signal,
+        }).then(res => {
+          clearTimeout(timer);
+          resolve(res);
+        }).catch(err => {
+          clearTimeout(timer);
+          reject(err);
         });
-        clearTimeout(timeout);
-        if (res.ok) return res.json();
-        // Erreur Supabase (ex: 400, 500) → on la propage vraiment
-        const errText = await res.text();
-        throw new Error("Erreur serveur : " + errText);
+      });
+
+      let networkOk = false;
+      let serverError = null;
+
+      try {
+        const res = await fetchAvecTimeout();
+        if (res.ok) {
+          networkOk = true;
+          return await res.json();
+        }
+        // Réponse reçue mais erreur serveur (400, 422, 500...)
+        const txt = await res.text();
+        serverError = "Erreur serveur (" + res.status + ") : " + txt;
       } catch(e) {
-        // Si c'est une vraie erreur Supabase (pas réseau), on la propage
-        if (e.message && e.message.startsWith("Erreur serveur")) throw e;
-        // Tout autre échec (réseau coupé, timeout, fetch failed) → mode offline
-        const id = await saveToOfflineQueue(table, data);
-        return [{ ...data, _offline: true, _id: id }];
+        // Réseau inaccessible, timeout, fetch failed → on ignore et on enqueue
+        networkOk = false;
       }
+
+      // Si erreur serveur explicite (pas réseau), la remonter
+      if (serverError) throw new Error(serverError);
+
+      // Sinon : problème réseau → sauvegarder localement
+      const id = await saveToOfflineQueue(table, data);
+      return [{ ...data, _offline: true, _id: id }];
     }
 
     async function supabaseFetch(table) {
@@ -475,7 +497,33 @@
           setOfflineQueued(isOffline);
           setSubmitSuccess(true);
         } catch (e) {
-          setSubmitError("Erreur lors de l'envoi : " + e.message);
+          // Ne jamais afficher "Failed to fetch" à l'utilisateur
+          // Si c'est une erreur réseau → basculer en mode offline
+          const isNetworkError = !e.message || 
+            e.message.toLowerCase().includes("fetch") ||
+            e.message.toLowerCase().includes("network") ||
+            e.message.toLowerCase().includes("timeout") ||
+            e.message.toLowerCase().includes("abort") ||
+            e.message.toLowerCase().includes("connexion");
+          if (isNetworkError) {
+            // Sauvegarder quand même
+            try {
+              const id = await saveToOfflineQueue("adherents", {
+                nom: form.nom, prenom: form.prenom, date_naissance: form.dateNaissance,
+                adresse: form.adresse, code_postal: form.codePostal, ville: form.ville,
+                telephone: form.telephone, email: form.email,
+                consent_rgpd: form.consentRgpd, consent_marketing: form.consentMarketing,
+                montant_don: form.montantDon ? parseFloat(form.montantDon) : null,
+                iban: form.iban, bic: form.bic, signature,
+              });
+              setOfflineQueued(true);
+              setSubmitSuccess(true);
+            } catch(e2) {
+              setSubmitError("Impossible de sauvegarder le dossier. Vérifiez l'espace disponible sur votre appareil.");
+            }
+          } else {
+            setSubmitError("Erreur : " + e.message);
+          }
         }
         setSubmitting(false);
       }
