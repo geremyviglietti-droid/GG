@@ -10,7 +10,8 @@
   <meta name="apple-mobile-web-app-title" content="Adhésion" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <meta name="theme-color" content="#1e1b4b" />
-  <title>Formulaire d'adhésion</title>
+  <title>Formulaire d'adhésion v8</title>
+  <meta name="app-version" content="v8-offline-fix" />
   <link rel="stylesheet" href="libs/fonts.css" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -26,12 +27,139 @@
 <body>
   <div id="root"></div>
 
+  <!-- OFFLINE SUBMIT ENGINE v8 — autonome, hors Babel -->
+  <script>
+    (function() {
+      'use strict';
+      
+      var SUPABASE_URL = "https://couruebftrtlqwffdavz.supabase.co";
+      var SUPABASE_KEY = "sb_publishable_XKVDlf9Bem837GPgx8RNqw_lgs9Q6zc";
+      
+      // Ouvrir IndexedDB
+      function openDB() {
+        return new Promise(function(resolve, reject) {
+          var req = indexedDB.open('adhesion-v8', 1);
+          req.onupgradeneeded = function(e) {
+            e.target.result.createObjectStore('queue', {keyPath:'id', autoIncrement:true});
+          };
+          req.onsuccess = function() { resolve(req.result); };
+          req.onerror = function() { reject(req.error); };
+        });
+      }
+      
+      // Sauvegarder dans IndexedDB
+      function saveLocal(data) {
+        return openDB().then(function(db) {
+          return new Promise(function(resolve, reject) {
+            var tx = db.transaction('queue', 'readwrite');
+            var req = tx.objectStore('queue').add({
+              data: data,
+              savedAt: new Date().toISOString()
+            });
+            req.onsuccess = function() { resolve(req.result); };
+            req.onerror = function() { reject(req.error); };
+          });
+        });
+      }
+      
+      // Synchroniser la queue
+      function syncQueue() {
+        openDB().then(function(db) {
+          var tx = db.transaction('queue', 'readonly');
+          var req = tx.objectStore('queue').getAll();
+          req.onsuccess = function() {
+            var items = req.result || [];
+            items.forEach(function(item) {
+              fetch(SUPABASE_URL + '/rest/v1/adherents', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'apikey': SUPABASE_KEY,
+                  'Authorization': 'Bearer ' + SUPABASE_KEY,
+                  'Prefer': 'return=representation'
+                },
+                body: JSON.stringify(item.data)
+              }).then(function(r) {
+                if (r.ok) {
+                  openDB().then(function(db2) {
+                    db2.transaction('queue','readwrite').objectStore('queue').delete(item.id);
+                  });
+                }
+              }).catch(function() {});
+            });
+          };
+        }).catch(function() {});
+      }
+      
+      // Écouter le retour en ligne
+      window.addEventListener('online', syncQueue);
+      
+      // Fonction principale — appelée par le bouton Valider
+      window.offlineSubmit = function(data, onSuccess, onOffline, onError) {
+        console.log('[v8] offlineSubmit appelé');
+        
+        // Essai réseau avec timeout 4s
+        var done = false;
+        var timer = setTimeout(function() {
+          if (!done) {
+            done = true;
+            console.log('[v8] Timeout → mode offline');
+            saveLocal(data).then(function(id) {
+              onOffline(id);
+            }).catch(function(e) {
+              onError('Impossible de sauvegarder : ' + e.message);
+            });
+          }
+        }, 4000);
+        
+        fetch(SUPABASE_URL + '/rest/v1/adherents', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_KEY,
+            'Authorization': 'Bearer ' + SUPABASE_KEY,
+            'Prefer': 'return=representation'
+          },
+          body: JSON.stringify(data)
+        }).then(function(res) {
+          if (done) return;
+          clearTimeout(timer);
+          done = true;
+          if (res.ok) {
+            console.log('[v8] Envoi réussi en ligne');
+            res.json().then(onSuccess).catch(function() { onSuccess([]); });
+          } else if (res.status === 503 || res.status === 0 || res.status === 502) {
+            // SW offline response → mode offline
+            console.log('[v8] Status ' + res.status + ' → mode offline');
+            saveLocal(data).then(function(id) { onOffline(id); }).catch(function(e) { onError(e.message); });
+          } else {
+            res.text().then(function(txt) {
+              onError('Erreur serveur (' + res.status + ') : ' + txt);
+            });
+          }
+        }).catch(function(err) {
+          if (done) return;
+          clearTimeout(timer);
+          done = true;
+          console.log('[v8] Fetch échoué → mode offline :', err.message);
+          saveLocal(data).then(function(id) { onOffline(id); }).catch(function(e) { onError(e.message); });
+        });
+      };
+      
+      console.log('[v8] offlineSubmit prêt');
+    })();
+  </script>
+
   <script src="libs/react.min.js"></script>
   <script src="libs/react-dom.min.js"></script>
   <script src="libs/babel.min.js"></script>
 
   <script type="text/babel">
     const { useState, useRef, useEffect } = React;
+    
+    // VERSION CHECK — à supprimer après validation
+    console.log('%c[APP VERSION] v8-offline-fix chargée', 'background:#6d28d9;color:white;padding:4px 8px;border-radius:4px;font-weight:bold');
+    window.__APP_VERSION__ = 'v8-offline-fix';
 
     // ============================================================
     //  CONFIGURATION SUPABASE — MODIFIEZ CES 2 LIGNES
@@ -486,21 +614,27 @@
       async function handleSubmit() {
         if (!signature) { alert("Veuillez apposer votre signature avant de valider."); return; }
         setSubmitting(true); setSubmitError(null);
+        
+        const data = {
+          nom: form.nom, prenom: form.prenom, date_naissance: form.dateNaissance,
+          adresse: form.adresse, code_postal: form.codePostal, ville: form.ville,
+          telephone: form.telephone, email: form.email,
+          consent_rgpd: form.consentRgpd, consent_marketing: form.consentMarketing,
+          montant_don: form.montantDon ? parseFloat(form.montantDon) : null,
+          reduction_fiscale: form.montantDon ? parseFloat(defiscalisation) : null,
+          cout_net: form.montantDon ? parseFloat(netDon) : null,
+          iban: form.iban, bic: form.bic, signature,
+        };
+
         try {
-          const result = await supabaseInsert("adherents", {
-            nom: form.nom, prenom: form.prenom, date_naissance: form.dateNaissance,
-            adresse: form.adresse, code_postal: form.codePostal, ville: form.ville,
-            telephone: form.telephone, email: form.email,
-            consent_rgpd: form.consentRgpd, consent_marketing: form.consentMarketing,
-            montant_don: form.montantDon ? parseFloat(form.montantDon) : null,
-            reduction_fiscale: form.montantDon ? parseFloat(defiscalisation) : null,
-            cout_net: form.montantDon ? parseFloat(netDon) : null,
-            iban: form.iban, bic: form.bic, signature,
+          await new Promise((resolve, reject) => {
+            window.offlineSubmit(
+              data,
+              (result) => { setOfflineQueued(false); setSubmitSuccess(true); resolve(); },
+              (id)     => { setOfflineQueued(true);  setSubmitSuccess(true); resolve(); },
+              (err)    => { reject(new Error(err)); }
+            );
           });
-          // Vérifier si le dossier est en attente de sync (mode hors-ligne)
-          const isOffline = result && result[0] && result[0]._offline === true;
-          setOfflineQueued(isOffline);
-          setSubmitSuccess(true);
         } catch (e) {
           // Ne jamais afficher "Failed to fetch" à l'utilisateur
           // Si c'est une erreur réseau → basculer en mode offline
