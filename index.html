@@ -636,33 +636,13 @@
             );
           });
         } catch (e) {
-          // Ne jamais afficher "Failed to fetch" à l'utilisateur
-          // Si c'est une erreur réseau → basculer en mode offline
-          const isNetworkError = !e.message || 
-            e.message.toLowerCase().includes("fetch") ||
-            e.message.toLowerCase().includes("network") ||
-            e.message.toLowerCase().includes("timeout") ||
-            e.message.toLowerCase().includes("abort") ||
-            e.message.toLowerCase().includes("connexion");
-          if (isNetworkError) {
-            // Sauvegarder quand même
-            try {
-              const id = await saveToOfflineQueue("adherents", {
-                nom: form.nom, prenom: form.prenom, date_naissance: form.dateNaissance,
-                adresse: form.adresse, code_postal: form.codePostal, ville: form.ville,
-                telephone: form.telephone, email: form.email,
-                consent_rgpd: form.consentRgpd, consent_marketing: form.consentMarketing,
-                montant_don: form.montantDon ? parseFloat(form.montantDon) : null,
-                iban: form.iban, bic: form.bic, signature,
-              });
-              setOfflineQueued(true);
-              setSubmitSuccess(true);
-            } catch(e2) {
-              setSubmitError("Impossible de sauvegarder le dossier. Vérifiez l'espace disponible sur votre appareil.");
-            }
-          } else {
-            setSubmitError("Erreur : " + e.message);
-          }
+          // Filet de sécurité final — utiliser window.offlineSubmit directement
+          window.offlineSubmit(
+            data,
+            () => { setOfflineQueued(false); setSubmitSuccess(true); },
+            () => { setOfflineQueued(true);  setSubmitSuccess(true); },
+            (err) => { setSubmitError("Erreur : " + err); }
+          );
         }
         setSubmitting(false);
       }
