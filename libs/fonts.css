@@ -1,0 +1,14 @@
+
+/* Fallback fonts.css — remplace Google Fonts pour mode offline */
+/* DM Sans → polices système modernes */
+@font-face {
+  font-family: 'DM Sans';
+  src: local('Helvetica Neue'), local('Arial'), local('system-ui');
+  font-weight: 100 900;
+}
+/* Cormorant Garamond → polices serif système */
+@font-face {
+  font-family: 'Cormorant Garamond';
+  src: local('Georgia'), local('Times New Roman'), local('serif');
+  font-weight: 100 900;
+}
