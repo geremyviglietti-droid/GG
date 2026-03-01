@@ -48,19 +48,34 @@
     // ============================================================
     // ── VERSION PWA : gère le mode hors-ligne avec file de sync ──────
     async function supabaseInsert(table, data) {
-      const result = await window.PWA.queueOrSubmit({
-        table,
-        data,
-        supabaseUrl: SUPABASE_URL,
-        supabaseKey: SUPABASE_ANON_KEY
-      });
-      if (result.queued) {
-        // Sauvegarder aussi un brouillon local pour affichage immédiat
-        window.PWA.saveLocalDraft({ table, data, localId: result.localId });
-        // Retourner un objet "fantôme" pour que le reste du code fonctionne
-        return [{ ...data, id: result.localId, _offline: true }];
+      // Essayer d'abord via le Service Worker (offline-first)
+      if (window.PWA && window.PWA.queueOrSubmit) {
+        const result = await window.PWA.queueOrSubmit({
+          table,
+          data,
+          supabaseUrl: SUPABASE_URL,
+          supabaseKey: SUPABASE_ANON_KEY
+        });
+        if (result.queued) {
+          if (window.PWA.saveLocalDraft) window.PWA.saveLocalDraft({ table, data, localId: result.localId });
+          return [{ ...data, id: result.localId, _offline: true }];
+        }
+        return result.result;
       }
-      return result.result;
+      // Fallback : fetch direct si PWA pas encore chargé
+      if (!navigator.onLine) {
+        // Hors-ligne sans PWA : stocker dans localStorage comme secours
+        const key = "offline_queue_" + Date.now();
+        try { localStorage.setItem(key, JSON.stringify({ table, data, ts: new Date().toISOString() })); } catch(e) {}
+        return [{ ...data, id: key, _offline: true }];
+      }
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}`, "Prefer": "return=representation" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
     }
 
     async function supabaseFetch(table) {
@@ -618,6 +633,6 @@
 
     ReactDOM.createRoot(document.getElementById("root")).render(<App />);
   </script>
-  <script src="/pwa.js"></script>
+  <script src="pwa.js"></script>
 </body>
 </html>
