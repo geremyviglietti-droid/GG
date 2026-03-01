@@ -2,7 +2,7 @@
   "name": "Adhésion & CRM",
   "short_name": "Adhésion",
   "description": "Formulaire d'adhésion et tableau de bord collecteur",
-  "start_url": "/index.html",
+  "start_url": "index.html",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#1e1b4b",
@@ -63,17 +63,31 @@
       "name": "Nouveau dossier",
       "short_name": "Nouveau",
       "description": "Créer un nouveau dossier d'adhésion",
-      "url": "/index.html",
-      "icons": [{ "src": "icons/icon-96.png", "sizes": "96x96" }]
+      "url": "index.html",
+      "icons": [
+        {
+          "src": "icons/icon-96.png",
+          "sizes": "96x96"
+        }
+      ]
     },
     {
       "name": "Tableau de bord",
       "short_name": "Dashboard",
       "description": "Voir mes adhésions",
-      "url": "/dashboard.html",
-      "icons": [{ "src": "icons/icon-96.png", "sizes": "96x96" }]
+      "url": "dashboard.html",
+      "icons": [
+        {
+          "src": "icons/icon-96.png",
+          "sizes": "96x96"
+        }
+      ]
     }
   ],
-  "categories": ["productivity", "utilities"],
-  "prefer_related_applications": false
+  "categories": [
+    "productivity",
+    "utilities"
+  ],
+  "prefer_related_applications": false,
+  "scope": "./"
 }
