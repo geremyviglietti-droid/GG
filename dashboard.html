@@ -1230,16 +1230,7 @@
     const [rappels, setRappels]       = useState([]);
     const [rappelSelected, setRappelSelected] = useState(null);
 
-    // Redirection login si pas de session au démarrage
-    useEffect(() => {
-      try {
-        const stored = sessionStorage.getItem("collecteur");
-        if (!stored) {
-          // Pas de session → aller sur register.html pour s'identifier
-          window.location.href = "register.html";
-        }
-      } catch(e) {}
-    }, []);
+    // La page de connexion est gérée par LoginScreen (ligne if (!currentUser))
     useEffect(() => { if (currentUser) loadStats(); }, [currentUser]);
 
     async function deleteRappel(id) {
