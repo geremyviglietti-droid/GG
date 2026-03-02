@@ -176,11 +176,22 @@
 
   // ── HELPERS ───────────────────────────────────────────────────────
   async function supabaseFetch(table, filter = "") {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?select=*${filter}&order=created_at.desc`, {
-      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
-    });
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
+    // Timeout 5s pour détecter le mode hors-ligne même si le SW répond 503
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?select=*${filter}&order=created_at.desc`, {
+        headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      if (res.status === 503 || res.status === 0 || res.status === 502) throw new Error("offline");
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    } catch(e) {
+      clearTimeout(timer);
+      throw e;
+    }
   }
 
   async function supabaseDelete(table, id) {
@@ -1215,9 +1226,20 @@
     const [page, setPage]             = useState("dashboard");
     const [stats, setStats]           = useState(null);
     const [statsError, setStatsError] = useState(null);
+    const [statsOffline, setStatsOffline] = useState(null);
     const [rappels, setRappels]       = useState([]);
     const [rappelSelected, setRappelSelected] = useState(null);
 
+    // Redirection login si pas de session au démarrage
+    useEffect(() => {
+      try {
+        const stored = sessionStorage.getItem("collecteur");
+        if (!stored) {
+          // Pas de session → aller sur register.html pour s'identifier
+          window.location.href = "register.html";
+        }
+      } catch(e) {}
+    }, []);
     useEffect(() => { if (currentUser) loadStats(); }, [currentUser]);
 
     async function deleteRappel(id) {
@@ -1234,7 +1256,8 @@
           const { stats: cachedStats, rappels: cachedRappels, ts } = JSON.parse(cached);
           setStats(cachedStats);
           setRappels(cachedRappels || []);
-          setStatsError("📵 Hors-ligne — Données du " + new Date(ts).toLocaleDateString("fr-FR") + " à " + new Date(ts).toLocaleTimeString("fr-FR", {hour:"2-digit",minute:"2-digit"}));
+          setStatsOffline("📵 Données hors-ligne du " + new Date(ts).toLocaleDateString("fr-FR") + " à " + new Date(ts).toLocaleTimeString("fr-FR", {hour:"2-digit",minute:"2-digit"}));
+              setStatsError(null);
           return true;
         } catch(e) { return false; }
       }
@@ -1322,7 +1345,8 @@
         // Fetch échoué (hors-ligne) → charger depuis le cache
         const fromCache = loadFromCache();
         if (!fromCache) {
-          setStatsError("📵 Hors-ligne — Aucune donnée en cache. Connectez-vous une fois en ligne pour activer le cache.");
+          setStatsOffline("📵 Hors-ligne — Aucune donnée disponible. Ouvrez le dashboard en ligne pour activer le cache.");
+          setStatsError(null);
         }
       }
     }
@@ -1427,6 +1451,7 @@
                 )}
               </div>
 
+              {statsOffline && <div style={{background:"rgba(251,146,60,.12)",border:"1px solid rgba(251,146,60,.3)",borderRadius:12,padding:"14px 18px",color:"#fb923c",fontSize:13,marginBottom:20,display:"flex",alignItems:"center",gap:8}}><span>📵</span><span>{statsOffline.replace("📵 ","")}</span></div>}
               {statsError && <div style={{background:"rgba(239,68,68,.15)",border:"1px solid rgba(239,68,68,.3)",borderRadius:12,padding:"14px 18px",color:"#f87171",fontSize:13,marginBottom:20}}>{statsError}</div>}
               <div>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
