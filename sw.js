@@ -3,7 +3,7 @@
    Stratégie robuste offline-first
    ================================================================ */
 
-const CACHE_NAME = 'adhesion-crm-v5';
+const CACHE_NAME = 'adhesion-crm-v6';
 const SYNC_TAG   = 'sync-adhesions';
 
 const LOCAL_ASSETS = [
