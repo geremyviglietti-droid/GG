@@ -103,6 +103,65 @@
 <body>
 <div id="root"></div>
 
+  <!-- OFFLINE SUBMIT ENGINE v8 -->
+  <script>
+    (function() {
+      'use strict';
+      var SUPABASE_URL = "https://couruebftrtlqwffdavz.supabase.co";
+      var SUPABASE_KEY = "sb_publishable_XKVDlf9Bem837GPgx8RNqw_lgs9Q6zc";
+
+      function openDB() {
+        return new Promise(function(resolve, reject) {
+          var req = indexedDB.open('adhesion-v8', 1);
+          req.onupgradeneeded = function(e) { e.target.result.createObjectStore('queue', {keyPath:'id', autoIncrement:true}); };
+          req.onsuccess = function() { resolve(req.result); };
+          req.onerror = function() { reject(req.error); };
+        });
+      }
+
+      function saveLocal(data) {
+        return openDB().then(function(db) {
+          return new Promise(function(resolve, reject) {
+            var req = db.transaction('queue', 'readwrite').objectStore('queue').add({ data: data, savedAt: new Date().toISOString() });
+            req.onsuccess = function() { resolve(req.result); };
+            req.onerror = function() { reject(req.error); };
+          });
+        });
+      }
+
+      window.addEventListener('online', function() {
+        openDB().then(function(db) {
+          db.transaction('queue','readonly').objectStore('queue').getAll().onsuccess = function(e) {
+            (e.target.result || []).forEach(function(item) {
+              fetch(SUPABASE_URL + '/rest/v1/adherents', {
+                method:'POST', headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=representation'},
+                body: JSON.stringify(item.data)
+              }).then(function(r) { if(r.ok) openDB().then(function(db2){ db2.transaction('queue','readwrite').objectStore('queue').delete(item.id); }); }).catch(function(){});
+            });
+          };
+        }).catch(function(){});
+      });
+
+      window.offlineSubmit = function(data, onSuccess, onOffline, onError) {
+        var done = false;
+        var timer = setTimeout(function() {
+          if (!done) { done = true; saveLocal(data).then(function(id) { onOffline(id); }).catch(function(e) { onError(e.message); }); }
+        }, 4000);
+        fetch(SUPABASE_URL + '/rest/v1/adherents', {
+          method:'POST', headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=representation'},
+          body: JSON.stringify(data)
+        }).then(function(res) {
+          if (done) return; clearTimeout(timer); done = true;
+          if (res.ok) { res.json().then(onSuccess).catch(function(){ onSuccess([]); }); }
+          else if (res.status===503||res.status===0||res.status===502) { saveLocal(data).then(function(id){ onOffline(id); }).catch(function(e){ onError(e.message); }); }
+          else { res.text().then(function(txt){ onError('Erreur serveur ('+res.status+'): '+txt); }); }
+        }).catch(function(err) {
+          if (done) return; clearTimeout(timer); done = true;
+          saveLocal(data).then(function(id){ onOffline(id); }).catch(function(e){ onError(e.message); });
+        });
+      };
+    })();
+  </script>
 <script src="libs/react.min.js"></script>
 <script src="libs/react-dom.min.js"></script>
 <script src="libs/babel.min.js"></script>
@@ -143,13 +202,14 @@
   }
 
   async function supabaseInsert(table, data) {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, Prefer: "return=representation" },
-      body: JSON.stringify(data),
+    return new Promise((resolve, reject) => {
+      window.offlineSubmit(
+        data,
+        (result) => resolve({ result, _offline: false }),
+        (id)     => resolve({ result: null, _offline: true, _id: id }),
+        (err)    => reject(new Error(err))
+      );
     });
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
   }
 
   function calcAge(dateStr) {
@@ -471,32 +531,55 @@
     async function handleSubmit() {
       if (!signature) { alert("Veuillez signer avant de valider."); return; }
       setSubmitting(true); setSubmitError(null);
-      try {
-        await supabaseInsert("adherents", {
-          nom: form.nom, prenom: form.prenom, sexe: form.sexe || null, date_naissance: form.dateNaissance,
-          adresse: form.adresse, code_postal: form.codePostal, ville: form.ville,
-          telephone: form.telephone, email: form.email,
-          consent_rgpd: form.consentRgpd, consent_marketing: form.consentMarketing,
-          montant_don: form.montantDon ? parseFloat(form.montantDon) : null,
-          reduction_fiscale: form.montantDon ? parseFloat(defiscalisation) : null,
-          cout_net: form.montantDon ? parseFloat(netDon) : null,
-          iban: form.ibanDiffere ? null : form.iban,
-          bic: form.ibanDiffere ? null : form.bic,
-          signature,
-          collecteur_id: currentUser?.id,
-          incomplet: form.ibanDiffere ? true : false,
-          rdv_date: form.ibanDiffere && form.rdvDate ? `${form.rdvDate}T${form.rdvHeure||"10:00"}` : null,
-          rdv_note: form.ibanDiffere ? form.rdvNote : null,
-        });
-        setDone(true);
-        setTimeout(() => {
-          onSuccess && onSuccess();
-          setDone(false); setStep(0);
-          setForm({ nom:"", prenom:"", sexe:"", dateNaissance:"", adresse:"", codePostal:"", ville:"", telephone:"", email:"", consentRgpd:false, consentMarketing:false, montantDon:"", iban:"", bic:"", ibanValid:null, rdvDate:"", rdvHeure:"", rdvNote:"", ibanDiffere:false });
-          setSignature(null);
-        }, 2000);
-      } catch(e) { setSubmitError("Erreur : " + e.message); }
-      setSubmitting(false);
+
+      const data = {
+        nom: form.nom, prenom: form.prenom, sexe: form.sexe || null, date_naissance: form.dateNaissance,
+        adresse: form.adresse, code_postal: form.codePostal, ville: form.ville,
+        telephone: form.telephone, email: form.email,
+        consent_rgpd: form.consentRgpd, consent_marketing: form.consentMarketing,
+        montant_don: form.montantDon ? parseFloat(form.montantDon) : null,
+        reduction_fiscale: form.montantDon ? parseFloat(defiscalisation) : null,
+        cout_net: form.montantDon ? parseFloat(netDon) : null,
+        iban: form.ibanDiffere ? null : form.iban,
+        bic: form.ibanDiffere ? null : form.bic,
+        signature,
+        collecteur_id: currentUser?.id,
+        incomplet: form.ibanDiffere ? true : false,
+        rdv_date: form.ibanDiffere && form.rdvDate ? `${form.rdvDate}T${form.rdvHeure||"10:00"}` : null,
+        rdv_note: form.ibanDiffere ? form.rdvNote : null,
+      };
+
+      window.offlineSubmit(
+        data,
+        // Succès en ligne
+        (result) => {
+          setSubmitting(false);
+          setDone(true);
+          setTimeout(() => {
+            onSuccess && onSuccess();
+            setDone(false); setStep(0);
+            setForm({ nom:"", prenom:"", sexe:"", dateNaissance:"", adresse:"", codePostal:"", ville:"", telephone:"", email:"", consentRgpd:false, consentMarketing:false, montantDon:"", iban:"", bic:"", ibanValid:null, rdvDate:"", rdvHeure:"", rdvNote:"", ibanDiffere:false });
+            setSignature(null);
+          }, 2000);
+        },
+        // Sauvegardé hors-ligne
+        (id) => {
+          setSubmitting(false);
+          setDone(true);
+          setSubmitError("📵 Hors-ligne — Dossier sauvegardé localement, il sera envoyé au retour de la connexion.");
+          setTimeout(() => {
+            onSuccess && onSuccess();
+            setDone(false); setStep(0);
+            setForm({ nom:"", prenom:"", sexe:"", dateNaissance:"", adresse:"", codePostal:"", ville:"", telephone:"", email:"", consentRgpd:false, consentMarketing:false, montantDon:"", iban:"", bic:"", ibanValid:null, rdvDate:"", rdvHeure:"", rdvNote:"", ibanDiffere:false });
+            setSignature(null);
+          }, 3000);
+        },
+        // Erreur réelle
+        (err) => {
+          setSubmitting(false);
+          setSubmitError("Erreur : " + err);
+        }
+      );
     }
 
     if (done) return (
