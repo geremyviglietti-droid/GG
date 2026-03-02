@@ -1227,25 +1227,22 @@
       } catch(e) { alert("Erreur suppression : " + e.message); }
     }
 
+    function loadFromCache() {
+      const cached = localStorage.getItem("stats_cache_" + currentUser.id);
+      if (cached) {
+        try {
+          const { stats: cachedStats, rappels: cachedRappels, ts } = JSON.parse(cached);
+          setStats(cachedStats);
+          setRappels(cachedRappels || []);
+          setStatsError("📵 Hors-ligne — Données du " + new Date(ts).toLocaleDateString("fr-FR") + " à " + new Date(ts).toLocaleTimeString("fr-FR", {hour:"2-digit",minute:"2-digit"}));
+          return true;
+        } catch(e) { return false; }
+      }
+      return false;
+    }
+
     async function loadStats() {
       try {
-        // Hors-ligne : charger depuis le cache localStorage
-        if (!navigator.onLine) {
-          const cached = localStorage.getItem("stats_cache_" + currentUser.id);
-          if (cached) {
-            try {
-              const { stats: cachedStats, rappels: cachedRappels, ts } = JSON.parse(cached);
-              setStats(cachedStats);
-              setRappels(cachedRappels || []);
-              setStatsError("📵 Hors-ligne — Données du " + new Date(ts).toLocaleDateString("fr-FR") + " à " + new Date(ts).toLocaleTimeString("fr-FR", {hour:"2-digit",minute:"2-digit"}));
-            } catch(e) {
-              setStatsError("📵 Hors-ligne — Aucune donnée en cache disponible.");
-            }
-          } else {
-            setStatsError("📵 Hors-ligne — Aucune donnée disponible. Connectez-vous une première fois pour mettre les stats en cache.");
-          }
-          return;
-        }
         const rows = await supabaseFetch("adherents", `&collecteur_id=eq.${currentUser.id}`);
         const incomplets = rows.filter(r => r.incomplet === true);
         const adherents  = rows.filter(r => !r.incomplet);
@@ -1321,7 +1318,13 @@
           }));
         } catch(e) {}
 
-      } catch(e) { setStatsError(e.message); }
+      } catch(e) {
+        // Fetch échoué (hors-ligne) → charger depuis le cache
+        const fromCache = loadFromCache();
+        if (!fromCache) {
+          setStatsError("📵 Hors-ligne — Aucune donnée en cache. Connectez-vous une fois en ligne pour activer le cache.");
+        }
+      }
     }
 
     function handleLogout() {
