@@ -1229,6 +1229,23 @@
 
     async function loadStats() {
       try {
+        // Hors-ligne : charger depuis le cache localStorage
+        if (!navigator.onLine) {
+          const cached = localStorage.getItem("stats_cache_" + currentUser.id);
+          if (cached) {
+            try {
+              const { stats: cachedStats, rappels: cachedRappels, ts } = JSON.parse(cached);
+              setStats(cachedStats);
+              setRappels(cachedRappels || []);
+              setStatsError("📵 Hors-ligne — Données du " + new Date(ts).toLocaleDateString("fr-FR") + " à " + new Date(ts).toLocaleTimeString("fr-FR", {hour:"2-digit",minute:"2-digit"}));
+            } catch(e) {
+              setStatsError("📵 Hors-ligne — Aucune donnée en cache disponible.");
+            }
+          } else {
+            setStatsError("📵 Hors-ligne — Aucune donnée disponible. Connectez-vous une première fois pour mettre les stats en cache.");
+          }
+          return;
+        }
         const rows = await supabaseFetch("adherents", `&collecteur_id=eq.${currentUser.id}`);
         const incomplets = rows.filter(r => r.incomplet === true);
         const adherents  = rows.filter(r => !r.incomplet);
@@ -1279,11 +1296,10 @@
         const todaySt = computeStats(todayAdh);
         const allSt   = computeStats(adherents);
 
-        setStats({
+        const statsObj = {
           today: todaySt.total,
           todayStats: todaySt,
           allStats:   allSt,
-          // legacy fields for components that use stats.total etc.
           total: allSt.total,
           avgAge: allSt.avgAge,
           medianAge: allSt.medianAge,
@@ -1292,8 +1308,19 @@
           perHour: allSt.perHour,
           ageTranches: allSt.ageTranches,
           donTranches: allSt.donTranches,
-        });
+        };
+        setStats(statsObj);
         setRappels(incomplets);
+
+        // Sauvegarder en cache pour le mode hors-ligne
+        try {
+          localStorage.setItem("stats_cache_" + currentUser.id, JSON.stringify({
+            stats: statsObj,
+            rappels: incomplets,
+            ts: new Date().toISOString()
+          }));
+        } catch(e) {}
+
       } catch(e) { setStatsError(e.message); }
     }
 
