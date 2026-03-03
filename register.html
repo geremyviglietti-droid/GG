@@ -77,14 +77,20 @@ function show(t){
 }
 function tp(id,btn){var i=document.getElementById(id);i.type=i.type==='password'?'text':'password';btn.textContent=i.type==='password'?'👁':'🙈';}
 function msg(t,c){document.getElementById('msg').innerHTML='<div class="alert '+c+'">'+t+'</div>';}
+// Hash SHA-256 identique à dashboard.html
+async function hashPassword(pwd){
+  var buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(pwd));
+  return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+}
 async function login(){
   var e=document.getElementById('le').value.trim(),p=document.getElementById('lp').value;
   if(!e||!p){msg('Remplissez tous les champs.','err');return;}
   var b=document.getElementById('bl');b.disabled=1;b.textContent='Connexion…';
   try{
-    var r=await fetch(U+'/rest/v1/collecteurs?email=eq.'+encodeURIComponent(e)+'&select=*',{headers:{apikey:K,Authorization:'Bearer '+K}});
+    var hash=await hashPassword(p);
+    var r=await fetch(U+'/rest/v1/collecteurs?email=eq.'+encodeURIComponent(e)+'&password_hash=eq.'+hash+'&select=*',{headers:{apikey:K,Authorization:'Bearer '+K}});
     var u=await r.json();
-    if(!u||!u.length||u[0].password!==p){msg('Email ou mot de passe incorrect.','err');return;}
+    if(!u||!u.length){msg('Email ou mot de passe incorrect.','err');return;}
     sessionStorage.setItem('collecteur',JSON.stringify(u[0]));
     msg('✓ Connexion réussie ! Redirection…','ok');
     setTimeout(function(){location.href='dashboard.html';},800);
@@ -105,7 +111,7 @@ async function register(){
     var c=await fetch(U+'/rest/v1/collecteurs?email=eq.'+encodeURIComponent(e)+'&select=id',{headers:{apikey:K,Authorization:'Bearer '+K}});
     var ex=await c.json();
     if(ex&&ex.length){msg('Cet email est déjà utilisé.','err');return;}
-    var res=await fetch(U+'/rest/v1/collecteurs',{method:'POST',headers:{'Content-Type':'application/json',apikey:K,Authorization:'Bearer '+K,Prefer:'return=representation'},body:JSON.stringify({prenom:p,nom:n,email:e,telephone:t,organisation:o,role:r,password:w,actif:true})});
+    var res=await fetch(U+'/rest/v1/collecteurs',{method:'POST',headers:{'Content-Type':'application/json',apikey:K,Authorization:'Bearer '+K,Prefer:'return=representation'},body:JSON.stringify({prenom:p,nom:n,email:e,telephone:t,organisation:o,role:r,password_hash:await hashPassword(w),actif:true})});
     if(!res.ok){msg('Erreur serveur : '+(await res.text()),'err');return;}
     var nu=(await res.json())[0];
     sessionStorage.setItem('collecteur',JSON.stringify(nu));
