@@ -25,6 +25,16 @@
   </style>
 </head>
 <body>
+  <!-- PROTECTION : redirige vers dashboard si non connecté -->
+  <script>
+    (function(){
+      try {
+        if (!sessionStorage.getItem('collecteur')) {
+          location.replace('dashboard.html');
+        }
+      } catch(e) { location.replace('dashboard.html'); }
+    })();
+  </script>
   <div id="root"></div>
 
   <!-- OFFLINE SUBMIT ENGINE v8 — autonome, hors Babel -->
