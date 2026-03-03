@@ -1,7 +1,7 @@
 {
-  "name": "Adhésion & CRM",
-  "short_name": "Adhésion",
-  "description": "Formulaire d'adhésion et tableau de bord collecteur",
+  "name": "La Graine Recruteur",
+  "short_name": "La Graine",
+  "description": "Application de recrutement — La Graine",
   "start_url": "dashboard.html",
   "display": "standalone",
   "orientation": "portrait-primary",
