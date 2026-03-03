@@ -68,6 +68,7 @@
 <script>
 var U="https://couruebftrtlqwffdavz.supabase.co",K="sb_publishable_XKVDlf9Bem837GPgx8RNqw_lgs9Q6zc";
 try{if(sessionStorage.getItem("collecteur"))location.href="dashboard.html";}catch(e){}
+
 function show(t){
   document.getElementById('fl').style.display=t==='login'?'block':'none';
   document.getElementById('fr').style.display=t==='register'?'block':'none';
@@ -77,11 +78,12 @@ function show(t){
 }
 function tp(id,btn){var i=document.getElementById(id);i.type=i.type==='password'?'text':'password';btn.textContent=i.type==='password'?'👁':'🙈';}
 function msg(t,c){document.getElementById('msg').innerHTML='<div class="alert '+c+'">'+t+'</div>';}
-// Hash SHA-256 identique à dashboard.html
+
 async function hashPassword(pwd){
   var buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(pwd));
   return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
 }
+
 async function login(){
   var e=document.getElementById('le').value.trim(),p=document.getElementById('lp').value;
   if(!e||!p){msg('Remplissez tous les champs.','err');return;}
@@ -94,9 +96,10 @@ async function login(){
     sessionStorage.setItem('collecteur',JSON.stringify(u[0]));
     msg('✓ Connexion réussie ! Redirection…','ok');
     setTimeout(function(){location.href='dashboard.html';},800);
-  }catch(e){msg('Erreur : '+e.message,'err');}
+  }catch(err){msg('Erreur : '+err.message,'err');}
   finally{b.disabled=0;b.textContent='Se connecter →';}
 }
+
 async function register(){
   var p=document.getElementById('rp').value.trim(),n=document.getElementById('rn').value.trim(),
       e=document.getElementById('re').value.trim(),t=document.getElementById('rt').value.trim(),
@@ -111,15 +114,17 @@ async function register(){
     var c=await fetch(U+'/rest/v1/collecteurs?email=eq.'+encodeURIComponent(e)+'&select=id',{headers:{apikey:K,Authorization:'Bearer '+K}});
     var ex=await c.json();
     if(ex&&ex.length){msg('Cet email est déjà utilisé.','err');return;}
-    var res=await fetch(U+'/rest/v1/collecteurs',{method:'POST',headers:{'Content-Type':'application/json',apikey:K,Authorization:'Bearer '+K,Prefer:'return=representation'},body:JSON.stringify({prenom:p,nom:n,email:e,telephone:t,organisation:o,role:r,password_hash:await hashPassword(w),actif:true})});
+    var hash=await hashPassword(w);
+    var res=await fetch(U+'/rest/v1/collecteurs',{method:'POST',headers:{'Content-Type':'application/json',apikey:K,Authorization:'Bearer '+K,Prefer:'return=representation'},body:JSON.stringify({prenom:p,nom:n,email:e,telephone:t,organisation:o,role:r,password_hash:hash,actif:true})});
     if(!res.ok){msg('Erreur serveur : '+(await res.text()),'err');return;}
     var nu=(await res.json())[0];
     sessionStorage.setItem('collecteur',JSON.stringify(nu));
     msg('✓ Compte créé ! Redirection…','ok');
     setTimeout(function(){location.href='dashboard.html';},1000);
-  }catch(e){msg('Erreur : '+e.message,'err');}
+  }catch(err){msg('Erreur : '+err.message,'err');}
   finally{b.disabled=0;b.textContent='Créer mon compte →';}
 }
+
 document.addEventListener('keydown',function(e){if(e.key!=='Enter')return;document.getElementById('fl').style.display!=='none'?login():register();});
 if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js',{scope:'./'}).catch(function(){});
 </script>
