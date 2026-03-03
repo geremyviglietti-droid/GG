@@ -1207,7 +1207,7 @@
         <div className="card" style={{background:"rgba(251,146,60,.08)",borderColor:"rgba(251,146,60,.2)"}}>
           <p style={{fontSize:11,fontWeight:700,color:"rgba(251,146,60,.7)",letterSpacing:".08em",textTransform:"uppercase",marginBottom:6}}>Base de calcul</p>
           <p style={{fontSize:13,color:"rgba(255,255,255,0.5)",lineHeight:1.7}}>
-            Le ratio <strong style={{color:"rgba(255,255,255,0.8)"}}>adh / heure</strong> est calculé sur <strong style={{color:"rgba(255,255,255,0.8)"}}>6 heures effectives</strong> de terrain. Aujourd'hui : <strong style={{color:"#fb923c"}}>{(todayCount/6).toFixed(2)} adh/h</strong> — Mission complète : <strong style={{color:"#818cf8"}}>{stats.perHour.toFixed(2)} adh/h</strong>.
+            Le ratio <strong style={{color:"rgba(255,255,255,0.8)"}}>adh / heure</strong> = moyenne sur <strong style={{color:"rgba(255,255,255,0.8)"}}>6h de terrain / jour travaillé</strong>. Aujourd'hui : <strong style={{color:"#fb923c"}}>{(todayCount/6).toFixed(2)} adh/h</strong> — Mission complète : <strong style={{color:"#818cf8"}}>{stats.perHour.toFixed(2)} adh/h</strong> (sur {stats.allStats ? stats.allStats.nbJoursTravailles : 1} jour(s) travaillé(s)).
           </p>
         </div>
 
@@ -1338,7 +1338,9 @@
           const dons = list.map(r=>parseFloat(r.montant_don)).filter(d=>!isNaN(d)&&d>0);
           const avgDon = dons.length>0 ? dons.reduce((s,d)=>s+d,0)/dons.length : null;
           const totalDons = dons.reduce((s,d)=>s+d,0);
-          const perHour = total / 6;
+          const joursUniques = new Set(list.map(r => r.created_at ? r.created_at.split("T")[0] : null).filter(Boolean));
+          const nbJoursTravailles = joursUniques.size || 1;
+          const perHour = total / (nbJoursTravailles * 6);
           const ageTranches = [
             { label:"18–25", min:18, max:25, color:"#a78bfa" },
             { label:"26–35", min:26, max:35, color:"#60a5fa" },
@@ -1362,7 +1364,7 @@
           const nbA = list.filter(r=>r.sexe==="A").length;
           const nbNR = total - nbH - nbF - nbA;
           const sexeStats = { H:nbH, F:nbF, A:nbA, NR:nbNR };
-          return { total, avgAge, medianAge, avgDon, totalDons, perHour, ageTranches, donTranches, sexeStats };
+          return { total, avgAge, medianAge, avgDon, totalDons, perHour, nbJoursTravailles, ageTranches, donTranches, sexeStats };
         }
 
         const todaySt = computeStats(todayAdh);
@@ -1734,8 +1736,8 @@
                   <div className="card" style={{marginTop:16,background:"rgba(251,146,60,.08)",borderColor:"rgba(251,146,60,.2)"}}>
                     <p style={{fontSize:11,fontWeight:700,color:"rgba(251,146,60,.7)",letterSpacing:".08em",textTransform:"uppercase",marginBottom:8}}>Base de calcul</p>
                     <p style={{fontSize:13,color:"rgba(255,255,255,0.5)",lineHeight:1.7}}>
-                      Le ratio <strong style={{color:"rgba(255,255,255,0.8)"}}>adh / heure</strong> est calculé sur <strong style={{color:"rgba(255,255,255,0.8)"}}>6 heures effectives</strong> de terrain.
-                      Mission : <strong style={{color:"#fbbf24"}}>{stats.allStats.perHour.toFixed(2)} adh/h</strong> ({stats.allStats.total} adhérents) —
+                      Le ratio <strong style={{color:"rgba(255,255,255,0.8)"}}>adh / heure</strong> = moyenne sur <strong style={{color:"rgba(255,255,255,0.8)"}}>6h de terrain / jour travaillé</strong>.
+                      Mission : <strong style={{color:"#fbbf24"}}>{stats.allStats.perHour.toFixed(2)} adh/h</strong> ({stats.allStats.total} adhérents · {stats.allStats.nbJoursTravailles} jour(s) travaillé(s)) —
                       Aujourd'hui : <strong style={{color:"#a78bfa"}}>{stats.todayStats.perHour.toFixed(2)} adh/h</strong> ({stats.todayStats.total} adhérents).
                     </p>
                   </div>
