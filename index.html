@@ -25,16 +25,6 @@
   </style>
 </head>
 <body>
-  <!-- PROTECTION : redirige vers dashboard si non connecté -->
-  <script>
-    (function(){
-      try {
-        if (!sessionStorage.getItem('collecteur')) {
-          location.replace('dashboard.html');
-        }
-      } catch(e) { location.replace('dashboard.html'); }
-    })();
-  </script>
   <div id="root"></div>
 
   <!-- OFFLINE SUBMIT ENGINE v8 — autonome, hors Babel -->
@@ -160,9 +150,9 @@
     })();
   </script>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js" crossorigin></script>
+  <script src="libs/react.min.js"></script>
+  <script src="libs/react-dom.min.js"></script>
+  <script src="libs/babel.min.js"></script>
 
   <script type="text/babel">
     const { useState, useRef, useEffect } = React;
@@ -178,8 +168,8 @@
     const SUPABASE_URL = "https://couruebftrtlqwffdavz.supabase.co";
     const SUPABASE_ANON_KEY = "sb_publishable_XKVDlf9Bem837GPgx8RNqw_lgs9Q6zc";
 
-    // Mot de passe CRM — changez-le !
-    const CRM_PASSWORD = "admin1234";
+    // ⚠️ Le mot de passe CRM n'est plus stocké ici.
+    // La vérification se fait via la table "admins" dans Supabase.
 
     // ============================================================
     //  HELPERS SUPABASE
@@ -527,9 +517,24 @@
     function CRMLogin({ onSuccess, onCancel }) {
       const [pwd, setPwd] = useState("");
       const [err, setErr] = useState(false);
-      function submit() {
-        if (pwd === CRM_PASSWORD) onSuccess();
-        else { setErr(true); setTimeout(() => setErr(false), 2000); }
+      const [loading, setLoading] = useState(false);
+      async function hashPassword(p) {
+        const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(p));
+        return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,"0")).join("");
+      }
+      async function submit() {
+        if (!pwd) return;
+        setLoading(true); setErr(false);
+        try {
+          const hash = await hashPassword(pwd);
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/admins?password_hash=eq.${hash}&select=id`, {
+            headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` }
+          });
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) onSuccess();
+          else { setErr(true); setTimeout(() => setErr(false), 2000); }
+        } catch { setErr(true); setTimeout(() => setErr(false), 2000); }
+        setLoading(false);
       }
       return (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: font }}>
@@ -682,10 +687,7 @@
 
           <div style={{ maxWidth: 820, margin: "0 auto", padding: "36px 20px 60px" }}>
             <div style={{ textAlign: "center", marginBottom: 40, position: "relative" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16, marginBottom: 8 }}>
-                <img src="icons/logo.jpg" alt="La Graine" style={{ height: 56, borderRadius: 10, objectFit: "contain", background: "white", padding: "4px 8px" }} />
-                <h1 style={{ fontFamily: serif, fontSize: 42, color: "white", fontWeight: 600 }}>Formulaire d'adhésion</h1>
-              </div>
+              <h1 style={{ fontFamily: serif, fontSize: 42, color: "white", marginBottom: 8, fontWeight: 600 }}>Formulaire d'adhésion</h1>
               <p style={{ color: "rgba(255,255,255,0.6)", fontSize: 15, fontWeight: 300 }}>Remplissez chaque étape pour finaliser votre dossier d'adhésion</p>
               <div style={{ position: "absolute", right: 0, top: 4, display: "flex", gap: 8 }}>
                 <a href="dashboard.html" style={{ padding: "8px 16px", borderRadius: 20, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.7)", cursor: "pointer", fontFamily: font, fontSize: 12, fontWeight: 600, textDecoration: "none" }}>🏠 Tableau de bord</a>
