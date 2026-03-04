@@ -51,9 +51,9 @@
 
 <div id="root"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js" crossorigin></script>
+<script src="libs/react.min.js"></script>
+<script src="libs/react-dom.min.js"></script>
+<script src="libs/babel.min.js"></script>
 
 <script type="text/babel">
   const { useState, useEffect, useCallback, useMemo } = React;
@@ -61,7 +61,10 @@
   // ── CONFIG ────────────────────────────────────────────────────────
   const SUPABASE_URL = "https://couruebftrtlqwffdavz.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_XKVDlf9Bem837GPgx8RNqw_lgs9Q6zc";
-  const ADMIN_PASSWORD = "admin1234"; // Changez ce mot de passe !
+  // ⚠️ Le mot de passe admin n'est PLUS stocké ici.
+  // L'authentification se fait via la table "admins" dans Supabase.
+  // Assurez-vous que la table "admins" existe avec les colonnes : email, password_hash
+  // et que les politiques RLS sont configurées correctement (lecture restreinte).
 
   const font = "'DM Sans', sans-serif";
   const serif = "'Cormorant Garamond', serif";
@@ -118,9 +121,30 @@
     const [err, setErr] = useState(false);
     const [shake, setShake] = useState(false);
 
-    function submit() {
-      if (pwd === ADMIN_PASSWORD) { onLogin(); }
-      else { setErr(true); setShake(true); setTimeout(() => setShake(false), 500); }
+    async function hashPassword(pwd) {
+      const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pwd));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,"0")).join("");
+    }
+
+    async function submit() {
+      if (!pwd.trim()) { setErr(true); return; }
+      try {
+        const hash = await hashPassword(pwd);
+        // Vérification côté serveur dans la table "admins"
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/admins?password_hash=eq.${hash}&select=id`, {
+          headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` }
+        });
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          // Stocke un token de session côté client uniquement (non persisté entre onglets)
+          sessionStorage.setItem("admin_session", hash.slice(0, 16));
+          onLogin();
+        } else {
+          setErr(true); setShake(true); setTimeout(() => setShake(false), 500);
+        }
+      } catch(e) {
+        setErr(true); setShake(true); setTimeout(() => setShake(false), 500);
+      }
     }
 
     return (
@@ -307,7 +331,17 @@
 
   // ── MAIN APP ──────────────────────────────────────────────────────
   function App() {
-    const [auth, setAuth] = useState(false);
+    // Vérification : si la session admin n'existe pas, forcer la page de login
+    const [auth, setAuth] = useState(() => {
+      try { return !!sessionStorage.getItem("admin_session"); } catch { return false; }
+    });
+    function handleLogin() {
+      setAuth(true);
+    }
+    function handleLogout() {
+      try { sessionStorage.removeItem("admin_session"); } catch {}
+      setAuth(false);
+    }
     const [page, setPage] = useState("overview"); // overview | adherents | collecteurs
     const [adherents, setAdherents] = useState(null);
     const [collecteurs, setCollecteurs] = useState(null);
@@ -336,6 +370,17 @@
     }, []);
 
     useEffect(() => { if (auth) load(); }, [auth, load]);
+
+    // Vérification de session périodique (sécurité supplémentaire)
+    useEffect(() => {
+      const check = () => {
+        try {
+          if (!sessionStorage.getItem("admin_session")) handleLogout();
+        } catch {}
+      };
+      const interval = setInterval(check, 60000); // Vérifie chaque minute
+      return () => clearInterval(interval);
+    }, []);
 
     // ── Derived stats (adhérents complets uniquement) ────────────
     const adherentsComplets = React.useMemo(() => adherents ? adherents.filter(r => !r.incomplet) : [], [adherents]);
@@ -427,7 +472,7 @@
 
     const Arrow = ({ f }) => <span style={{ opacity: .5 }}>{sortField === f ? (sortDir === "asc" ? " ↑" : " ↓") : " ↕"}</span>;
 
-    if (!auth) return <Login onLogin={() => setAuth(true)} />;
+    if (!auth) return <Login onLogin={handleLogin} />;
 
     const navItems = [
       { key: "overview",    label: "Vue d'ensemble", icon: "📊" },
@@ -462,6 +507,7 @@
               <span style={{ display: "inline-block", animation: loading ? "spin 1s linear infinite" : "none" }}>🔄</span> Actualiser
             </button>
             <a href="dashboard.html" style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "rgba(255,255,255,0.5)", cursor: "pointer", fontFamily: font, fontSize: 13, fontWeight: 600, textDecoration: "none" }}>← Espace collecteur</a>
+            <button onClick={handleLogout} title="Se déconnecter" style={{ padding: "8px 16px", borderRadius: 10, border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.08)", color: "#f87171", cursor: "pointer", fontFamily: font, fontSize: 13, fontWeight: 600 }}>🔒 Déconnexion</button>
           </div>
         </header>
 
