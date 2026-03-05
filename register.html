@@ -26,6 +26,8 @@
 
 <div id="root"></div>
 
+<!-- Supabase Auth JS (client officiel) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="libs/react.min.js"></script>
 <script src="libs/react-dom.min.js"></script>
 <script src="libs/babel.min.js"></script>
@@ -35,27 +37,21 @@
 
   // Si déjà connecté → aller directement au dashboard
   useEffect(() => {
-    try {
-      const stored = sessionStorage.getItem("collecteur");
-      if (stored) window.location.href = "dashboard.html";
-    } catch(e) {}
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) window.location.href = "dashboard.html";
+    });
   }, []);
 
   const SUPABASE_URL = "https://couruebftrtlqwffdavz.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_XKVDlf9Bem837GPgx8RNqw_lgs9Q6zc";
 
+  // ── CLIENT SUPABASE AUTH ──────────────────────────────────────────
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
   const font = "'DM Sans', sans-serif";
   const serif = "'Cormorant Garamond', serif";
 
-  async function supabaseInsert(table, data) {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}`, "Prefer": "return=representation" },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
-  }
+  // supabaseInsert remplacé par supabase.auth.signUp ci-dessous
 
   function App() {
     const [step, setStep] = useState("form"); // form | success
@@ -104,36 +100,51 @@
       return Object.keys(e).length === 0;
     }
 
-    async function hashPassword(pwd) {
-      const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pwd));
-      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,"0")).join("");
-    }
-
     async function handleSubmit() {
       if (!validate()) return;
       setSubmitting(true); setSubmitError(null);
       try {
-        // Vérifier si l'email existe déjà
-        const existing = await fetch(`${SUPABASE_URL}/rest/v1/collecteurs?email=eq.${encodeURIComponent(form.email)}&select=id`, {
-          headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` }
-        }).then(r => r.json()).catch(() => []);
-        if (existing && existing.length > 0) {
-          setSubmitError("Un compte avec cet email existe déjà.");
+        const safeRole = ["collecteur", "responsable"].includes(form.role) ? form.role : "collecteur";
+
+        // ✅ Supabase Auth : création du compte utilisateur
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: form.email.trim(),
+          password: form.password,
+          options: {
+            data: { prenom: form.prenom, nom: form.nom }, // métadonnées stockées dans Auth
+          },
+        });
+
+        if (authError) {
+          if (authError.message.includes("already registered")) {
+            setSubmitError("Un compte avec cet email existe déjà.");
+          } else {
+            setSubmitError("Erreur lors de la création du compte : " + authError.message);
+          }
           setSubmitting(false); return;
         }
-        const password_hash = await hashPassword(form.password);
-        // Sécurité : on force le rôle à "collecteur" côté client.
-        // Le rôle "admin" ou "responsable" ne peut être attribué que manuellement dans Supabase.
-        const safeRole = ["collecteur", "responsable"].includes(form.role) ? form.role : "collecteur";
-        await supabaseInsert("collecteurs", {
-          prenom: form.prenom,
-          nom: form.nom,
-          email: form.email,
-          telephone: form.telephone,
-          organisation: form.organisation,
-          role: safeRole,
-          password_hash,
+
+        // Créer le profil collecteur lié au compte Auth
+        await fetch(`${SUPABASE_URL}/rest/v1/collecteurs`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": SUPABASE_ANON_KEY,
+            "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+            "Prefer": "return=representation"
+          },
+          body: JSON.stringify({
+            auth_user_id: authData.user.id, // clé de liaison avec Supabase Auth
+            prenom: form.prenom,
+            nom: form.nom,
+            email: form.email.trim(),
+            telephone: form.telephone,
+            organisation: form.organisation,
+            role: safeRole,
+            // ⚠️ Plus de password_hash — Supabase Auth gère les mots de passe
+          }),
         });
+
         setStep("success");
       } catch(e) {
         setSubmitError("Erreur lors de la création du compte : " + e.message);
