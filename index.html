@@ -150,9 +150,31 @@
     })();
   </script>
 
+  <!-- Supabase Auth JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <script src="libs/react.min.js"></script>
   <script src="libs/react-dom.min.js"></script>
   <script src="libs/babel.min.js"></script>
+
+  <!-- Garde d'accès : redirige vers dashboard si accès direct sans session -->
+  <script>
+    (function() {
+      const SUPA_URL = "https://couruebftrtlqwffdavz.supabase.co";
+      const SUPA_KEY = "sb_publishable_XKVDlf9Bem837GPgx8RNqw_lgs9Q6zc";
+      // Vérifier si l'accès vient du dashboard (via referrer ou param)
+      const fromDashboard = document.referrer.includes("dashboard.html") || 
+                            sessionStorage.getItem("formulaire_autorise") === "1";
+      if (!fromDashboard) {
+        // Vérifier la session Auth
+        const sb = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+        sb.auth.getSession().then(function(r) {
+          if (!r.data.session) {
+            window.location.href = "dashboard.html";
+          }
+        });
+      }
+    })();
+  </script>
 
   <script type="text/babel">
     const { useState, useRef, useEffect } = React;
@@ -517,24 +539,9 @@
     function CRMLogin({ onSuccess, onCancel }) {
       const [pwd, setPwd] = useState("");
       const [err, setErr] = useState(false);
-      const [loading, setLoading] = useState(false);
-      async function hashPassword(p) {
-        const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(p));
-        return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,"0")).join("");
-      }
-      async function submit() {
-        if (!pwd) return;
-        setLoading(true); setErr(false);
-        try {
-          const hash = await hashPassword(pwd);
-          const res = await fetch(`${SUPABASE_URL}/rest/v1/admins?password_hash=eq.${hash}&select=id`, {
-            headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` }
-          });
-          const data = await res.json();
-          if (Array.isArray(data) && data.length > 0) onSuccess();
-          else { setErr(true); setTimeout(() => setErr(false), 2000); }
-        } catch { setErr(true); setTimeout(() => setErr(false), 2000); }
-        setLoading(false);
+      function submit() {
+        if (pwd === CRM_PASSWORD) onSuccess();
+        else { setErr(true); setTimeout(() => setErr(false), 2000); }
       }
       return (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: font }}>
