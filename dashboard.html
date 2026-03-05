@@ -1566,7 +1566,9 @@
           const avgAge = ages.length>0 ? ages.reduce((s,a)=>s+a,0)/ages.length : null;
           const sorted = [...ages].sort((a,b)=>a-b);
           const medianAge = sorted.length>0
-            ? (sorted.length%2===0 ? (sorted[sorted.length/2-1]+sorted[sorted.length/2])/2 : sorted[Math.floor(sorted.length/2)])
+            ? (sorted.length%2===0
+                ? (sorted[sorted.length/2-1]+sorted[sorted.length/2])/2
+                : sorted[Math.floor(sorted.length/2)])
             : null;
           const dons = list.map(r=>parseFloat(r.montant_don)).filter(d=>!isNaN(d)&&d>0);
           const avgDon = dons.length>0 ? dons.reduce((s,d)=>s+d,0)/dons.length : null;
@@ -1710,7 +1712,13 @@
         {/* HEADER */}
         <header style={{background:"rgba(255,255,255,0.03)",borderBottom:"1px solid rgba(255,255,255,0.07)",padding:"0 32px",height:64,display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100,backdropFilter:"blur(12px)"}}>
           <div style={{display:"flex",alignItems:"center",gap:28}}>
-            <span style={{fontFamily:serif,fontSize:20,color:"white",fontWeight:600}}>🎯 Collecteur</span>
+            <div style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>setPage("dashboard")}>
+              <img src="icons/icon-384.png" alt="La Graine"
+                style={{width:36,height:36,borderRadius:8,objectFit:"cover",background:"white",padding:2}}
+                onError={e=>{e.target.onerror=null;e.target.style.display="none";}}
+              />
+              <span style={{fontFamily:serif,fontSize:20,color:"white",fontWeight:600}}>La Graine</span>
+            </div>
             <nav className="desktop-header-nav" style={{display:"flex",gap:4}}>
               {[
                 {key:"dashboard",label:"Accueil",icon:"🏠"},
@@ -1900,7 +1908,7 @@
                     <div className="card" style={{textAlign:"center",padding:24}}>
                       <div style={{fontSize:24,marginBottom:8}}>⏱️</div>
                       <div style={{fontFamily:serif,fontSize:32,fontWeight:700,color:"#fbbf24",lineHeight:1}}>
-                        {stats.allStats.perHour.toFixed(2)}<span style={{fontSize:14,fontWeight:300,color:"rgba(255,255,255,0.4)",marginLeft:3}}>/h</span>
+                        {(stats.perHour||0).toFixed(2)}<span style={{fontSize:14,fontWeight:300,color:"rgba(255,255,255,0.4)",marginLeft:3}}>/h</span>
                       </div>
                       <div style={{fontSize:11,fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",color:"rgba(255,255,255,0.4)",marginTop:8}}>Adh / heure (mission)</div>
                     </div>
@@ -1909,7 +1917,7 @@
                     <div className="card" style={{textAlign:"center",padding:24,background:"rgba(167,139,250,.06)",borderColor:"rgba(124,58,237,.25)"}}>
                       <div style={{fontSize:24,marginBottom:8}}>📅</div>
                       <div style={{fontFamily:serif,fontSize:32,fontWeight:700,color:"#a78bfa",lineHeight:1}}>
-                        {(stats.todayStats.perHour).toFixed(2)}<span style={{fontSize:14,fontWeight:300,color:"rgba(255,255,255,0.4)",marginLeft:3}}>/h</span>
+                        {(stats.today>0 ? (stats.today/6.25) : 0).toFixed(2)}<span style={{fontSize:14,fontWeight:300,color:"rgba(255,255,255,0.4)",marginLeft:3}}>/h</span>
                       </div>
                       <div style={{fontSize:11,fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",color:"rgba(255,255,255,0.4)",marginTop:8}}>Adh / heure (aujourd'hui)</div>
                     </div>
@@ -1935,8 +1943,8 @@
                           <div style={{height:"100%",background:"#818cf8",borderRadius:8,width:"100%"}}/>
                         </div>
                         <div style={{display:"flex",justifyContent:"space-between",marginTop:12,gap:16,flexWrap:"wrap"}}>
-                          <div style={{fontSize:12,color:"rgba(255,255,255,0.45)"}}>⏱️ Journée : <strong style={{color:"#a78bfa"}}>{stats.todayStats.perHour.toFixed(2)} adh/h</strong></div>
-                          <div style={{fontSize:12,color:"rgba(255,255,255,0.45)"}}>⏱️ Mission : <strong style={{color:"#fbbf24"}}>{stats.allStats.perHour.toFixed(2)} adh/h</strong></div>
+                          <div style={{fontSize:12,color:"rgba(255,255,255,0.45)"}}>⏱️ Journée : <strong style={{color:"#a78bfa"}}>{(stats.today>0 ? (stats.today/6.25) : 0).toFixed(2)} adh/h</strong></div>
+                          <div style={{fontSize:12,color:"rgba(255,255,255,0.45)"}}>⏱️ Mission : <strong style={{color:"#fbbf24"}}>{(stats.perHour||0).toFixed(2)} adh/h</strong></div>
                         </div>
                       </div>
                       <div style={{display:"flex",gap:20,flexShrink:0}}>
@@ -2029,8 +2037,8 @@
                     <p style={{fontSize:11,fontWeight:700,color:"rgba(251,146,60,.7)",letterSpacing:".08em",textTransform:"uppercase",marginBottom:8}}>Base de calcul</p>
                     <p style={{fontSize:13,color:"rgba(255,255,255,0.5)",lineHeight:1.7}}>
                       Le ratio <strong style={{color:"rgba(255,255,255,0.8)"}}>adh / heure</strong> est calculé sur <strong style={{color:"rgba(255,255,255,0.8)"}}>6 heures effectives</strong> de terrain.
-                      Mission : <strong style={{color:"#fbbf24"}}>{stats.allStats.perHour.toFixed(2)} adh/h</strong> ({stats.allStats.total} adhérents) —
-                      Aujourd'hui : <strong style={{color:"#a78bfa"}}>{stats.todayStats.perHour.toFixed(2)} adh/h</strong> ({stats.todayStats.total} adhérents).
+                      Mission : <strong style={{color:"#fbbf24"}}>{(stats.perHour||0).toFixed(2)} adh/h</strong> ({stats.allStats.total} adhérents) —
+                      Aujourd'hui : <strong style={{color:"#a78bfa"}}>{(stats.today>0 ? (stats.today/6.25) : 0).toFixed(2)} adh/h</strong> ({stats.todayStats.total} adhérents).
                     </p>
                   </div>
                 </div>
