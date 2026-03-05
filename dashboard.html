@@ -162,6 +162,8 @@
       };
     })();
   </script>
+<!-- Supabase Auth JS (client officiel) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="libs/react.min.js"></script>
 <script src="libs/react-dom.min.js"></script>
 <script src="libs/babel.min.js"></script>
@@ -174,14 +176,26 @@
   const serif = "'Cormorant Garamond', serif";
   const font  = "'DM Sans', sans-serif";
 
-  // ── HELPERS ───────────────────────────────────────────────────────
+  // ── CLIENT SUPABASE AUTH (officiel) ───────────────────────────────
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // ── HELPERS (utilisent le token JWT de la session Auth) ───────────
+  async function getAuthHeaders() {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token ?? SUPABASE_ANON_KEY;
+    return {
+      "apikey": SUPABASE_ANON_KEY,
+      "Authorization": `Bearer ${token}`,
+    };
+  }
+
   async function supabaseFetch(table, filter = "") {
-    // Timeout 5s pour détecter le mode hors-ligne même si le SW répond 503
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5000);
     try {
+      const headers = await getAuthHeaders();
       const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?select=*${filter}&order=created_at.desc`, {
-        headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+        headers,
         signal: controller.signal,
       });
       clearTimeout(timer);
@@ -195,17 +209,19 @@
   }
 
   async function supabaseDelete(table, id) {
+    const headers = await getAuthHeaders();
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
       method: "DELETE",
-      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+      headers,
     });
     if (!res.ok) throw new Error(await res.text());
   }
 
   async function supabaseUpdate(table, id, data) {
+    const headers = await getAuthHeaders();
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, Prefer: "return=representation" },
+      headers: { "Content-Type": "application/json", ...headers, Prefer: "return=representation" },
       body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error(await res.text());
@@ -233,11 +249,6 @@
     let age = n.getFullYear() - bYear;
     if (n.getMonth() < bMonth || (n.getMonth() === bMonth && n.getDate() < bDay)) age--;
     return (age >= 0 && age < 120) ? age : null;
-  }
-
-  async function hashPassword(pwd) {
-    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pwd));
-    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
   }
 
   // ── IBAN ──────────────────────────────────────────────────────────
@@ -341,30 +352,43 @@
     const [showPwd, setShowPwd]   = useState(false);
     const [loading, setLoading]   = useState(false);
     const [error, setError]       = useState(null);
+    const [resetMode, setResetMode] = useState(false);
+    const [resetSent, setResetSent] = useState(false);
 
     async function handleLogin() {
       if (!email.trim() || !password) { setError("Veuillez remplir tous les champs."); return; }
       setLoading(true); setError(null);
       try {
-        const hash = await hashPassword(password);
-        // Récupération par email uniquement (ne pas passer le hash dans l'URL)
-        const res = await fetch(
-          `${SUPABASE_URL}/rest/v1/collecteurs?email=eq.${encodeURIComponent(email.trim())}&select=*`,
-          { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
-        );
-        const rows = await res.json();
-        if (!rows || rows.length === 0 || rows[0].password_hash !== hash) {
-          // Même message d'erreur volontairement vague (ne pas indiquer si l'email existe)
+        // ✅ Supabase Auth — gère tokens JWT, sessions et refresh automatiquement
+        const { data, error: authError } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+        if (authError) {
           setError("Email ou mot de passe incorrect.");
         } else {
-          const user = rows[0];
-          // Ne pas stocker le hash du mot de passe dans la session
-          const { password_hash, ...safeUser } = user;
-          sessionStorage.setItem("collecteur", JSON.stringify(safeUser));
-          onLogin(safeUser);
+          // Récupérer le profil collecteur associé à cet utilisateur Auth
+          const { data: profil } = await supabase
+            .from("collecteurs")
+            .select("*")
+            .eq("auth_user_id", data.user.id)
+            .single();
+          const user = profil ?? { id: data.user.id, email: data.user.email, prenom: data.user.user_metadata?.prenom ?? "Collecteur", nom: data.user.user_metadata?.nom ?? "" };
+          onLogin(user);
         }
       } catch(e) { setError("Erreur de connexion : " + e.message); }
       setLoading(false);
+    }
+
+    async function handleResetPassword() {
+      if (!email.trim()) { setError("Entrez votre email pour réinitialiser le mot de passe."); return; }
+      setLoading(true); setError(null);
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: window.location.origin + "/dashboard.html",
+      });
+      setLoading(false);
+      if (resetError) setError("Erreur : " + resetError.message);
+      else setResetSent(true);
     }
 
     const inp = (err) => ({
@@ -381,26 +405,45 @@
           <div style={{textAlign:"center",marginBottom:36}}>
             <div style={{width:60,height:60,borderRadius:18,background:"linear-gradient(135deg,#4c1d95,#6d28d9)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 20px",fontSize:26}}>🎯</div>
             <h1 style={{fontFamily:serif,fontSize:32,color:"white",fontWeight:600,marginBottom:6}}>Espace Collecteur</h1>
-            <p style={{color:"rgba(255,255,255,0.4)",fontSize:14}}>Connectez-vous pour accéder à votre tableau de bord</p>
+            <p style={{color:"rgba(255,255,255,0.4)",fontSize:14}}>{resetMode ? "Réinitialisez votre mot de passe" : "Connectez-vous pour accéder à votre tableau de bord"}</p>
           </div>
-          <div style={{marginBottom:16}}>
-            <label style={lbl}>Adresse email</label>
-            <input type="email" value={email} onChange={e=>{setEmail(e.target.value);setError(null);}} onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder="jean.martin@email.com" style={inp(!!error)} />
-          </div>
-          <div style={{marginBottom:24}}>
-            <label style={lbl}>Mot de passe</label>
-            <div style={{position:"relative"}}>
-              <input type={showPwd?"text":"password"} value={password} onChange={e=>{setPassword(e.target.value);setError(null);}} onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder="••••••••" style={{...inp(!!error),paddingRight:48}} />
-              <button onClick={()=>setShowPwd(v=>!v)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.4)",fontSize:16}}>{showPwd?"🙈":"👁"}</button>
+
+          {resetSent ? (
+            <div style={{background:"rgba(34,197,94,.12)",border:"1px solid rgba(34,197,94,.3)",borderRadius:14,padding:"20px 24px",textAlign:"center"}}>
+              <div style={{fontSize:28,marginBottom:12}}>📧</div>
+              <p style={{color:"#4ade80",fontWeight:700,fontSize:15,marginBottom:6}}>Email envoyé !</p>
+              <p style={{color:"rgba(255,255,255,0.5)",fontSize:13,lineHeight:1.6}}>Consultez votre boîte mail pour réinitialiser votre mot de passe.</p>
+              <button onClick={()=>{setResetMode(false);setResetSent(false);}} style={{marginTop:20,background:"none",border:"none",color:"#a78bfa",cursor:"pointer",fontSize:13,fontWeight:600}}>← Retour à la connexion</button>
             </div>
-          </div>
-          {error && <div style={{background:"rgba(239,68,68,.12)",border:"1px solid rgba(239,68,68,.3)",borderRadius:10,padding:"12px 16px",marginBottom:16,color:"#f87171",fontSize:13,textAlign:"center"}}>{error}</div>}
-          <button onClick={handleLogin} disabled={loading} style={{width:"100%",padding:"15px",borderRadius:14,border:"none",background:loading?"rgba(255,255,255,0.1)":"linear-gradient(135deg,#4c1d95,#6d28d9)",color:loading?"rgba(255,255,255,0.4)":"white",fontSize:15,fontWeight:700,cursor:loading?"not-allowed":"pointer",fontFamily:font,boxShadow:loading?"none":"0 8px 28px rgba(76,29,149,.45)",transition:"all .2s"}}>
-            {loading ? "Connexion en cours…" : "Se connecter →"}
-          </button>
-          <p style={{textAlign:"center",fontSize:13,color:"rgba(255,255,255,0.35)",marginTop:20}}>
-            Pas encore de compte ? <a href="register.html" style={{color:"#a78bfa",textDecoration:"none",fontWeight:600}}>S'inscrire</a>
-          </p>
+          ) : (
+            <>
+              <div style={{marginBottom:16}}>
+                <label style={lbl}>Adresse email</label>
+                <input type="email" value={email} onChange={e=>{setEmail(e.target.value);setError(null);}} onKeyDown={e=>e.key==="Enter"&&(resetMode?handleResetPassword():handleLogin())} placeholder="jean.martin@email.com" style={inp(!!error)} />
+              </div>
+              {!resetMode && (
+                <div style={{marginBottom:24}}>
+                  <label style={lbl}>Mot de passe</label>
+                  <div style={{position:"relative"}}>
+                    <input type={showPwd?"text":"password"} value={password} onChange={e=>{setPassword(e.target.value);setError(null);}} onKeyDown={e=>e.key==="Enter"&&handleLogin()} placeholder="••••••••" style={{...inp(!!error),paddingRight:48}} />
+                    <button onClick={()=>setShowPwd(v=>!v)} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.4)",fontSize:16}}>{showPwd?"🙈":"👁"}</button>
+                  </div>
+                </div>
+              )}
+              {error && <div style={{background:"rgba(239,68,68,.12)",border:"1px solid rgba(239,68,68,.3)",borderRadius:10,padding:"12px 16px",marginBottom:16,color:"#f87171",fontSize:13,textAlign:"center"}}>{error}</div>}
+              <button onClick={resetMode?handleResetPassword:handleLogin} disabled={loading} style={{width:"100%",padding:"15px",borderRadius:14,border:"none",background:loading?"rgba(255,255,255,0.1)":"linear-gradient(135deg,#4c1d95,#6d28d9)",color:loading?"rgba(255,255,255,0.4)":"white",fontSize:15,fontWeight:700,cursor:loading?"not-allowed":"pointer",fontFamily:font,boxShadow:loading?"none":"0 8px 28px rgba(76,29,149,.45)",transition:"all .2s"}}>
+                {loading ? "…" : resetMode ? "Envoyer le lien →" : "Se connecter →"}
+              </button>
+              <div style={{textAlign:"center",marginTop:16}}>
+                <button onClick={()=>{setResetMode(v=>!v);setError(null);}} style={{background:"none",border:"none",color:"rgba(255,255,255,0.35)",cursor:"pointer",fontSize:13}}>
+                  {resetMode ? "← Retour à la connexion" : "Mot de passe oublié ?"}
+                </button>
+              </div>
+              <p style={{textAlign:"center",fontSize:13,color:"rgba(255,255,255,0.35)",marginTop:12}}>
+                Pas encore de compte ? <a href="register.html" style={{color:"#a78bfa",textDecoration:"none",fontWeight:600}}>S'inscrire</a>
+              </p>
+            </>
+          )}
         </div>
       </div>
     );
@@ -1224,9 +1267,8 @@
     );
   }
   function App() {
-    const [currentUser, setCurrentUser] = useState(() => {
-      try { return JSON.parse(sessionStorage.getItem("collecteur")); } catch { return null; }
-    });
+    const [currentUser, setCurrentUser] = useState(null);
+    const [authLoading, setAuthLoading] = useState(true); // attend la vérif de session initiale
     const [page, setPage]             = useState("dashboard");
     const [stats, setStats]           = useState(null);
     const [statsError, setStatsError] = useState(null);
@@ -1234,6 +1276,32 @@
     const [offlinePending, setOfflinePending] = useState([]);
     const [rappels, setRappels]       = useState([]);
     const [rappelSelected, setRappelSelected] = useState(null);
+
+    // ── Supabase Auth : vérification de session au démarrage ─────────
+    useEffect(() => {
+      // Vérifier si une session existe déjà (ex: rafraîchissement de page)
+      supabase.auth.getSession().then(async ({ data: { session } }) => {
+        if (session) {
+          const { data: profil } = await supabase
+            .from("collecteurs").select("*").eq("auth_user_id", session.user.id).single();
+          const user = profil ?? { id: session.user.id, email: session.user.email, prenom: session.user.user_metadata?.prenom ?? "Collecteur", nom: session.user.user_metadata?.nom ?? "" };
+          setCurrentUser(user);
+        }
+        setAuthLoading(false);
+      });
+
+      // Écouter les changements de session (connexion / déconnexion / expiration)
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === "SIGNED_OUT" || !session) {
+          setCurrentUser(null);
+          setStats(null);
+        }
+        if (event === "TOKEN_REFRESHED" && session) {
+          // Token renouvelé automatiquement — rien à faire, getAuthHeaders() récupère le nouveau
+        }
+      });
+      return () => subscription.unsubscribe();
+    }, []);
 
     // La page de connexion est gérée par LoginScreen (ligne if (!currentUser))
     useEffect(() => {
@@ -1405,11 +1473,17 @@
       }
     }
 
-    function handleLogout() {
-      sessionStorage.removeItem("collecteur");
+    async function handleLogout() {
+      await supabase.auth.signOut(); // invalide le token côté serveur
       setCurrentUser(null);
       setStats(null);
     }
+
+    if (authLoading) return (
+      <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#0f0e1a"}}>
+        <div style={{color:"rgba(255,255,255,0.3)",fontSize:14}}>Chargement…</div>
+      </div>
+    );
 
     if (!currentUser) return <LoginScreen onLogin={user => setCurrentUser(user)} />;
 
