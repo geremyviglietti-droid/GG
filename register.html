@@ -35,17 +35,10 @@
 <script type="text/babel">
   const { useState, useEffect } = React;
 
-  // Si déjà connecté → aller directement au dashboard
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) window.location.href = "dashboard.html";
-    });
-  }, []);
-
   const SUPABASE_URL = "https://couruebftrtlqwffdavz.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_XKVDlf9Bem837GPgx8RNqw_lgs9Q6zc";
 
-  // ── CLIENT SUPABASE AUTH ──────────────────────────────────────────
+  // ── CLIENT SUPABASE AUTH — déclaré en premier ─────────────────────
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   const font = "'DM Sans', sans-serif";
@@ -54,12 +47,19 @@
   // supabaseInsert remplacé par supabase.auth.signUp ci-dessous
 
   function App() {
-    const [step, setStep] = useState("form"); // form | success
+    const [step, setStep] = useState("form");
     const [form, setForm] = useState({ prenom:"", nom:"", email:"", telephone:"", organisation:"", role:"collecteur", password:"", passwordConfirm:"", acceptTerms:false });
     const [errors, setErrors] = useState({});
     const [showPwd, setShowPwd] = useState(false);
     const [showPwd2, setShowPwd2] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+
+    // Si déjà connecté → aller directement au dashboard
+    useEffect(() => {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) window.location.href = "dashboard.html";
+      });
+    }, []);
     const [submitError, setSubmitError] = useState(null);
 
     const roles = [
@@ -213,8 +213,11 @@
 
             {/* RIGHT — form */}
             <div className="fade-in" style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.09)",borderRadius:24,padding:"36px 32px",backdropFilter:"blur(12px)"}}>
-              <h2 style={{fontFamily:serif,fontSize:28,color:"white",fontWeight:600,marginBottom:4}}>Créer un compte</h2>
-              <p style={{color:"rgba(255,255,255,0.4)",fontSize:14,marginBottom:28}}>Remplissez le formulaire pour vous inscrire</p>
+          <div style={{textAlign:"center",marginBottom:28}}>
+            <img src="icons/icon-384.png" alt="La Graine" style={{width:80,height:80,borderRadius:20,objectFit:"contain",margin:"0 auto 16px",display:"block"}} />
+            <h2 style={{fontFamily:serif,fontSize:28,color:"white",fontWeight:600,marginBottom:4}}>Créer un compte</h2>
+            <p style={{color:"rgba(255,255,255,0.4)",fontSize:14,marginBottom:0}}>Remplissez le formulaire pour vous inscrire</p>
+          </div>
 
               {/* Nom / Prénom */}
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:16}}>
